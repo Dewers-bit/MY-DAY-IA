@@ -24,9 +24,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Login
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
-import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Insights
+import androidx.compose.material.icons.rounded.Payments
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -273,14 +273,14 @@ fun AuthScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
-                            imageVector = Icons.Rounded.AutoAwesome,
+                            imageVector = Icons.Rounded.AccountBalanceWallet,
                             contentDescription = null,
                             tint = EmeraldIncome,
                             modifier = Modifier.size(16.dp)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "Gestão Pessoal & Financeira Inteligente",
+                            text = "Gestão Pessoal & Financeira",
                             style = MaterialTheme.typography.labelMedium,
                             color = EmeraldIncome
                         )
@@ -289,14 +289,14 @@ fun AuthScreen(
 
                 Spacer(modifier = Modifier.height(18.dp))
                 Text(
-                    text = "My Day iA",
+                    text = "My Day",
                     style = MaterialTheme.typography.displayMedium,
                     color = Color.White,
                     textAlign = TextAlign.Center
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "Controle as suas finanças em Kwanza (Kz), orçamentos, poupanças, dívidas e o seu dia com inteligência artificial.",
+                    text = "Controle as suas finanças em Kwanza (Kz), salários, orçamentos, poupanças, dívidas e o seu dia num só lugar.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = Color(0xFFCBD5E1),
                     textAlign = TextAlign.Center
@@ -310,7 +310,7 @@ fun AuthScreen(
                             .crossfade(true)
                             .build()
                     },
-                    contentDescription = "Ilustração financeira My Day iA",
+                    contentDescription = "Ilustração financeira My Day",
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(185.dp)
@@ -324,17 +324,17 @@ fun AuthScreen(
                     AuthFeatureRow(
                         icon = Icons.Rounded.AccountBalanceWallet,
                         title = "Finanças em Kwanza (Kz)",
-                        subtitle = "Receitas, despesas, categorias e limites inteligentes"
+                        subtitle = "Receitas, despesas, categorias e limites mensais"
                     )
                     AuthFeatureRow(
-                        icon = Icons.Rounded.AutoAwesome,
-                        title = "Assistente My Day iA",
-                        subtitle = "Registe gastos por linguagem natural e receba análises reais"
+                        icon = Icons.Rounded.Payments,
+                        title = "Meu Salário & Reservas",
+                        subtitle = "Distribua o salário por categorias e controle o saldo livre"
                     )
                     AuthFeatureRow(
                         icon = Icons.Rounded.Insights,
                         title = "Relatórios, Poupanças & My Day",
-                        subtitle = "Exportação PDF/Excel e planeamento diário inteligente"
+                        subtitle = "Exportação PDF/Excel e planeamento diário de tarefas"
                     )
                 }
             }

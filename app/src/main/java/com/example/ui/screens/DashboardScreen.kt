@@ -24,7 +24,6 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.ArrowDownward
 import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.Assessment
-import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Event
 import androidx.compose.material.icons.rounded.NotificationsActive
@@ -259,15 +258,6 @@ fun DashboardScreen(
                 }
                 item {
                     QuickActionChip(
-                        icon = Icons.Rounded.AutoAwesome,
-                        label = "My Day iA",
-                        tint = MaterialTheme.colorScheme.secondary,
-                        tag = "quick_ai",
-                        onClick = { onNavigateToRoute("ai_assistant") }
-                    )
-                }
-                item {
-                    QuickActionChip(
                         icon = Icons.Rounded.Assessment,
                         label = "Relatórios",
                         tint = MaterialTheme.colorScheme.primary,
@@ -361,37 +351,19 @@ fun DashboardScreen(
                         )
                     }
                     Spacer(modifier = Modifier.height(10.dp))
-                    Row(
+                    OutlinedButton(
+                        onClick = { onNavigateToRoute("salary") },
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        shape = RoundedCornerShape(12.dp)
                     ) {
-                        OutlinedButton(
-                            onClick = { onNavigateToRoute("salary") },
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Text("Ver Reservas")
-                        }
-                        Button(
-                            onClick = { onNavigateToRoute("ai_assistant") },
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = EmeraldIncome,
-                                contentColor = NavyDeep
-                            )
-                        ) {
-                            Icon(Icons.Rounded.AutoAwesome, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Consultar iA", fontWeight = FontWeight.SemiBold)
-                        }
+                        Text("Ver Reservas & Distribuir")
                     }
                 } else {
                     Text(
                         text = if (salary.config != null && salary.config.monthlySalary > 0) {
                             "Salário configurado: ${CurrencyUtils.formatKz(salary.config.monthlySalary)} (dia ${salary.config.paydayOfMonth}, faltam ${salary.daysUntilNextPayday} dias). Confirme quando receber."
                         } else {
-                            "Configure o seu salário mensal para controlar reservas, disponibilidade real e receber previsões inteligentes."
+                            "Configure o seu salário mensal para controlar reservas e saber quanto dinheiro tem disponível."
                         },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -636,7 +608,7 @@ fun DashboardScreen(
             ) {
                 if (combined.isEmpty()) {
                     Text(
-                        text = "Ainda não tem receitas nem despesas registadas. Use os botões acima ou o My Day iA para começar.",
+                        text = "Ainda não tem receitas nem despesas registadas. Use os botões acima para começar.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

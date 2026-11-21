@@ -29,7 +29,6 @@ import androidx.compose.material.icons.automirrored.rounded.Logout
 import androidx.compose.material.icons.automirrored.rounded.ReceiptLong
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material.icons.rounded.Assessment
-import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.CreditCard
 import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.Dashboard
@@ -89,10 +88,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import coil.compose.AsyncImage
-import com.example.data.repository.AiAssistantRepository
 import com.example.data.repository.FinanceRepository
 import com.example.data.repository.ThemePreferencesRepository
-import com.example.ui.screens.AiAssistantScreen
 import com.example.ui.screens.AuthScreen
 import com.example.ui.screens.BudgetScreen
 import com.example.ui.screens.DashboardScreen
@@ -108,7 +105,6 @@ import com.example.ui.theme.EmeraldIncome
 import com.example.ui.theme.MyDayIaTheme
 import com.example.ui.viewmodel.AppDataState
 import com.example.ui.viewmodel.MyDayViewModel
-import com.example.util.configureAppCheck
 import com.google.firebase.Firebase
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
@@ -134,7 +130,6 @@ enum class AppDestination(
     SAVINGS("savings", "Poupanças", "Poupanças", Icons.Rounded.Savings),
     DEBTS("debts", "Dívidas", "Dívidas", Icons.Rounded.CreditCard),
     MY_DAY("my_day", "My Day", "My Day", Icons.AutoMirrored.Rounded.EventNote),
-    AI_ASSISTANT("ai_assistant", "My Day iA", "IA", Icons.Rounded.AutoAwesome),
     REPORTS("reports", "Relatórios", "Relatórios", Icons.Rounded.Assessment)
 }
 
@@ -149,9 +144,6 @@ internal fun FirebaseAuth.authStateFlow(): Flow<FirebaseUser?> = callbackFlow {
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        // Mandatory Step 1: Configure App Check with launch intent before any UI or Firebase calls
-        configureAppCheck(this, intent)
 
         enableEdgeToEdge()
 
@@ -246,7 +238,6 @@ private fun AuthenticatedMyDayShell(
                 val db = FirebaseFirestore.getInstance(databaseId)
                 MyDayViewModel(
                     repository = FinanceRepository(db),
-                    aiRepository = AiAssistantRepository(),
                     currentUserId = uid,
                     currentUserName = displayName,
                     currentUserEmail = email
@@ -256,12 +247,6 @@ private fun AuthenticatedMyDayShell(
     )
 
     val dashboardState by viewModel.dashboardState.collectAsStateWithLifecycle()
-    val aiMessages by viewModel.aiMessages.collectAsStateWithLifecycle()
-    val isAiBusy by viewModel.isAiBusy.collectAsStateWithLifecycle()
-    val budgetAdvice by viewModel.budgetAdviceState.collectAsStateWithLifecycle()
-    val savingsAdvice by viewModel.savingsAdviceState.collectAsStateWithLifecycle()
-    val scheduleAdvice by viewModel.scheduleAdviceState.collectAsStateWithLifecycle()
-    val salaryProposalState by viewModel.salaryProposalState.collectAsStateWithLifecycle()
     val recentlyConfirmedCycleId by viewModel.recentlyConfirmedCycleId.collectAsStateWithLifecycle()
 
     val navController = rememberNavController()
@@ -309,8 +294,8 @@ private fun AuthenticatedMyDayShell(
             AppDestination.DASHBOARD,
             AppDestination.EXPENSES,
             AppDestination.INCOMES,
-            AppDestination.MY_DAY,
-            AppDestination.AI_ASSISTANT
+            AppDestination.SALARY,
+            AppDestination.MY_DAY
         )
     }
 
@@ -428,7 +413,7 @@ private fun AuthenticatedMyDayShell(
                                     fontWeight = FontWeight.SemiBold
                                 )
                                 Text(
-                                    text = "My Day iA • Kwanza (Kz)",
+                                    text = "My Day • Kwanza (Kz)",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -450,16 +435,6 @@ private fun AuthenticatedMyDayShell(
                                 Icon(
                                     imageVector = if (isDarkTheme) Icons.Rounded.LightMode else Icons.Rounded.DarkMode,
                                     contentDescription = "Alternar modo claro/escuro"
-                                )
-                            }
-                            IconButton(
-                                onClick = { navigateTo(AppDestination.AI_ASSISTANT.route) },
-                                modifier = Modifier.testTag("topbar_ai_button")
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.AutoAwesome,
-                                    contentDescription = "Assistente My Day iA",
-                                    tint = EmeraldIncome
                                 )
                             }
                         }
@@ -593,7 +568,6 @@ private fun AuthenticatedMyDayShell(
                                     composable(AppDestination.SALARY.route) {
                                         SalaryScreen(
                                             summary = data.salarySummary,
-                                            proposalState = salaryProposalState,
                                             autoOpenDistributionCycleId = recentlyConfirmedCycleId,
                                             onConsumeAutoOpenDistribution = { viewModel.consumeRecentlyConfirmedCycle() },
                                             onSaveConfig = { amount, payday, freq ->
@@ -614,33 +588,26 @@ private fun AuthenticatedMyDayShell(
                                                 viewModel.updateSalaryCycleAllocations(cycleId, receivedAmt, allocs)
                                             },
                                             onUpdateCycleDetails = { viewModel.updateSalaryCycleDetails(it) },
-                                            onDeleteCycle = { viewModel.deleteSalaryCycle(it) },
-                                            onRequestAiProposal = { viewModel.requestSalaryDistributionProposal(it) },
-                                            onClearAiProposal = { viewModel.clearSalaryDistributionProposal() },
-                                            onAskGeminiAboutSalary = { navigateTo(AppDestination.AI_ASSISTANT.route) }
+                                            onDeleteCycle = { viewModel.deleteSalaryCycle(it) }
                                         )
                                     }
                                     composable(AppDestination.BUDGET.route) {
                                         BudgetScreen(
                                             data = data,
-                                            adviceState = budgetAdvice,
                                             onUpdateGlobalLimit = { viewModel.updateMonthlyBudgetLimit(it) },
                                             onSaveCategoryBudget = { viewModel.upsertCategoryBudget(it) },
-                                            onDeleteCategoryBudget = { viewModel.deleteCategoryBudget(it) },
-                                            onRequestAiAdvice = { viewModel.requestBudgetAdvice() }
+                                            onDeleteCategoryBudget = { viewModel.deleteCategoryBudget(it) }
                                         )
                                     }
                                     composable(AppDestination.SAVINGS.route) {
                                         SavingsScreen(
                                             goals = data.savingsGoals,
-                                            adviceMap = savingsAdvice,
                                             onSaveGoal = { g ->
                                                 if (g.id.isBlank()) viewModel.addSavingsGoal(g)
                                                 else viewModel.updateSavingsGoal(g)
                                             },
                                             onAddContribution = { g, amount -> viewModel.addSavingsContribution(g, amount) },
-                                            onDeleteGoal = { viewModel.deleteSavingsGoal(it) },
-                                            onRequestAiPlan = { viewModel.requestSavingsAdvice(it) }
+                                            onDeleteGoal = { viewModel.deleteSavingsGoal(it) }
                                         )
                                     }
                                     composable(AppDestination.DEBTS.route) {
@@ -660,24 +627,12 @@ private fun AuthenticatedMyDayShell(
                                     composable(AppDestination.MY_DAY.route) {
                                         MyDayPlannerScreen(
                                             tasks = data.tasks,
-                                            scheduleAdviceState = scheduleAdvice,
                                             onSaveTask = { t ->
                                                 if (t.id.isBlank()) viewModel.addDailyTask(t)
                                                 else viewModel.updateDailyTask(t)
                                             },
                                             onToggleCompleted = { viewModel.toggleTaskCompleted(it) },
-                                            onDeleteTask = { viewModel.deleteDailyTask(it) },
-                                            onRequestSchedulePlan = { viewModel.requestSchedulePlan(it) }
-                                        )
-                                    }
-                                    composable(AppDestination.AI_ASSISTANT.route) {
-                                        AiAssistantScreen(
-                                            messages = aiMessages,
-                                            isAiBusy = isAiBusy,
-                                            onSendMessage = { viewModel.sendAiMessage(it) },
-                                            onConfirmExpenses = { viewModel.confirmParsedExpenses(it) },
-                                            onCancelExpenses = { viewModel.cancelParsedExpenses(it) },
-                                            onClearHistory = { viewModel.clearAiHistory() }
+                                            onDeleteTask = { viewModel.deleteDailyTask(it) }
                                         )
                                     }
                                     composable(AppDestination.REPORTS.route) {

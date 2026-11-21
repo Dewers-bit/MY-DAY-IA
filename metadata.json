@@ -1,6 +1,6 @@
 {
-  "name": "My Day iA",
-  "description": "Assistente inteligente de gestão pessoal, finanças em Kwanza (Kz), orçamentos, poupanças, dívidas e planeamento diário.",
+  "name": "My Day",
+  "description": "Aplicação de gestão pessoal, finanças em Kwanza (Kz), salários, orçamentos, poupanças, dívidas e planeamento diário.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

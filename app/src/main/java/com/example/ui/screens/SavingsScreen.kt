@@ -17,7 +17,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Savings
@@ -25,7 +24,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -57,18 +55,15 @@ import com.example.ui.components.EmptyStateCard
 import com.example.ui.components.StatusBadge
 import com.example.ui.theme.EmeraldIncome
 import com.example.ui.theme.NavyDeep
-import com.example.ui.viewmodel.AiInsightState
 import com.example.util.CurrencyUtils
 import com.example.util.DateUtilsPt
 
 @Composable
 fun SavingsScreen(
     goals: List<SavingsGoal>,
-    adviceMap: Map<String, AiInsightState>,
     onSaveGoal: (SavingsGoal) -> Unit,
     onAddContribution: (SavingsGoal, Double) -> Unit,
-    onDeleteGoal: (String) -> Unit,
-    onRequestAiPlan: (SavingsGoal) -> Unit
+    onDeleteGoal: (String) -> Unit
 ) {
     var editingGoal by remember { mutableStateOf<SavingsGoal?>(null) }
     var showEditor by remember { mutableStateOf(false) }
@@ -145,14 +140,12 @@ fun SavingsScreen(
                 items(goals, key = { it.id }) { goal ->
                     SavingsGoalCard(
                         goal = goal,
-                        aiState = adviceMap[goal.id] ?: AiInsightState.Idle,
                         onContribute = { contributeGoal = goal },
                         onEdit = {
                             editingGoal = goal
                             showEditor = true
                         },
-                        onDelete = { onDeleteGoal(goal.id) },
-                        onRequestAi = { onRequestAiPlan(goal) }
+                        onDelete = { onDeleteGoal(goal.id) }
                     )
                 }
             }
@@ -185,11 +178,9 @@ fun SavingsScreen(
 @Composable
 private fun SavingsGoalCard(
     goal: SavingsGoal,
-    aiState: AiInsightState,
     onContribute: () -> Unit,
     onEdit: () -> Unit,
-    onDelete: () -> Unit,
-    onRequestAi: () -> Unit
+    onDelete: () -> Unit
 ) {
     val pct = (goal.progressRatio * 100).toInt()
     val remaining = (goal.targetAmount - goal.savedAmount).coerceAtLeast(0.0)
@@ -289,58 +280,12 @@ private fun SavingsGoalCard(
             }
 
             Spacer(modifier = Modifier.height(12.dp))
-            Row(
+            Button(
+                onClick = onContribute,
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                shape = RoundedCornerShape(12.dp)
             ) {
-                Button(
-                    onClick = onContribute,
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text("Reforçar")
-                }
-                OutlinedButton(
-                    onClick = onRequestAi,
-                    enabled = aiState !is AiInsightState.Loading,
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Icon(Icons.Rounded.AutoAwesome, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Plano IA")
-                }
-            }
-
-            when (aiState) {
-                AiInsightState.Idle -> Unit
-                AiInsightState.Loading -> Row(
-                    modifier = Modifier.padding(top = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("A calcular estratégia com IA...", style = MaterialTheme.typography.bodySmall)
-                }
-                is AiInsightState.Success -> Surface(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 10.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text(
-                        text = aiState.content,
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.padding(10.dp)
-                    )
-                }
-                is AiInsightState.Error -> Text(
-                    text = aiState.message,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.padding(top = 8.dp)
-                )
+                Text("Reforçar Poupança")
             }
         }
     }

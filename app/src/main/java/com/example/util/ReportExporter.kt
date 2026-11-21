@@ -67,7 +67,7 @@ object ReportExporter {
             }
         }
 
-        canvas.drawText("My Day iA — Relatório Financeiro", left, y, titlePaint)
+        canvas.drawText("My Day — Relatório Financeiro", left, y, titlePaint)
         y += 18f
         canvas.drawText("Período (${period.label}): $periodLabel", left, y, subtitlePaint)
         y += 12f
@@ -174,7 +174,7 @@ object ReportExporter {
             // UTF-8 BOM so Microsoft Excel opens Portuguese accents cleanly
             out.write(byteArrayOf(0xEF.toByte(), 0xBB.toByte(), 0xBF.toByte()))
             OutputStreamWriter(out, StandardCharsets.UTF_8).use { writer ->
-                writer.appendLine("My Day iA - Relatório Financeiro;Período: ${period.label};$periodLabel")
+                writer.appendLine("My Day - Relatório Financeiro;Período: ${period.label};$periodLabel")
                 writer.appendLine()
                 val totalIncome = incomes.sumOf { it.amount }
                 val totalExpense = expenses.sumOf { it.amount }

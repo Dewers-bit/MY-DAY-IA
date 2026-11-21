@@ -18,7 +18,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.EventAvailable
@@ -27,7 +26,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -59,21 +57,17 @@ import com.example.ui.components.StatusBadge
 import com.example.ui.theme.AmberAlert
 import com.example.ui.theme.CoralExpense
 import com.example.ui.theme.EmeraldIncome
-import com.example.ui.viewmodel.AiInsightState
 import com.example.util.DateUtilsPt
 
 @Composable
 fun MyDayPlannerScreen(
     tasks: List<DailyTask>,
-    scheduleAdviceState: AiInsightState,
     onSaveTask: (DailyTask) -> Unit,
     onToggleCompleted: (DailyTask) -> Unit,
-    onDeleteTask: (String) -> Unit,
-    onRequestSchedulePlan: (String) -> Unit
+    onDeleteTask: (String) -> Unit
 ) {
     var selectedDateMillis by remember { mutableLongStateOf(DateUtilsPt.startOfDayMillis()) }
     var filterMode by remember { mutableStateOf("DAY") } // DAY, PENDING, COMPLETED, ALL
-    var availableHoursInput by remember { mutableStateOf("08:30 às 18:00") }
     var editingTask by remember { mutableStateOf<DailyTask?>(null) }
     var showEditor by remember { mutableStateOf(false) }
 
@@ -123,62 +117,6 @@ fun MyDayPlannerScreen(
                     FilterChip(selected = filterMode == "PENDING", onClick = { filterMode = "PENDING" }, label = { Text("Pendentes") })
                     FilterChip(selected = filterMode == "COMPLETED", onClick = { filterMode = "COMPLETED" }, label = { Text("Concluídas") })
                     FilterChip(selected = filterMode == "ALL", onClick = { filterMode = "ALL" }, label = { Text("Todas") })
-                }
-            }
-
-            // AI Organizer Card
-            item {
-                SectionCard(
-                    title = "Organizar o Dia com IA",
-                    trailing = {
-                        Button(
-                            onClick = { onRequestSchedulePlan(availableHoursInput) },
-                            enabled = scheduleAdviceState !is AiInsightState.Loading,
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Icon(Icons.Rounded.AutoAwesome, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Planear")
-                        }
-                    }
-                ) {
-                    OutlinedTextField(
-                        value = availableHoursInput,
-                        onValueChange = { availableHoursInput = it },
-                        label = { Text("Tempo disponível hoje") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    when (scheduleAdviceState) {
-                        AiInsightState.Idle -> Text(
-                            text = "A IA organiza as suas tarefas pendentes por prioridade e horários de compromissos.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        AiInsightState.Loading -> Row(verticalAlignment = Alignment.CenterVertically) {
-                            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("A estruturar a sua agenda...", style = MaterialTheme.typography.bodySmall)
-                        }
-                        is AiInsightState.Success -> Surface(
-                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f),
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(
-                                text = scheduleAdviceState.content,
-                                style = MaterialTheme.typography.bodySmall,
-                                modifier = Modifier.padding(12.dp)
-                            )
-                        }
-                        is AiInsightState.Error -> Text(
-                            text = scheduleAdviceState.message,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.error
-                        )
-                    }
                 }
             }
 

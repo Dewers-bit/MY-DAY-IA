@@ -19,7 +19,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Tune
@@ -27,7 +26,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -60,7 +58,6 @@ import com.example.ui.components.StatusBadge
 import com.example.ui.theme.AmberAlert
 import com.example.ui.theme.CoralExpense
 import com.example.ui.theme.EmeraldIncome
-import com.example.ui.viewmodel.AiInsightState
 import com.example.ui.viewmodel.BudgetAlertLevel
 import com.example.ui.viewmodel.MyDayDashboardData
 import com.example.util.CurrencyUtils
@@ -68,11 +65,9 @@ import com.example.util.CurrencyUtils
 @Composable
 fun BudgetScreen(
     data: MyDayDashboardData,
-    adviceState: AiInsightState,
     onUpdateGlobalLimit: (Double) -> Unit,
     onSaveCategoryBudget: (CategoryBudget) -> Unit,
-    onDeleteCategoryBudget: (String) -> Unit,
-    onRequestAiAdvice: () -> Unit
+    onDeleteCategoryBudget: (String) -> Unit
 ) {
     var showGlobalDialog by remember { mutableStateOf(false) }
     var editingCategoryBudget by remember { mutableStateOf<CategoryBudget?>(null) }
@@ -156,46 +151,6 @@ fun BudgetScreen(
                                 .clip(RoundedCornerShape(50)),
                             color = alertBarColor(data.globalBudgetUsedRatio),
                             strokeCap = StrokeCap.Round
-                        )
-                    }
-                }
-            }
-
-            // AI Budget Advisor
-            item {
-                SectionCard(
-                    title = "Sugestões Inteligentes de Redução",
-                    trailing = {
-                        Button(
-                            onClick = onRequestAiAdvice,
-                            enabled = adviceState !is AiInsightState.Loading,
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Icon(Icons.Rounded.AutoAwesome, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Analisar com IA")
-                        }
-                    }
-                ) {
-                    when (adviceState) {
-                        AiInsightState.Idle -> Text(
-                            text = "Toque em \"Analisar com IA\" para o My Day iA identificar excessos e sugerir formas práticas de poupar com base nos seus gastos reais.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        AiInsightState.Loading -> Row(verticalAlignment = Alignment.CenterVertically) {
-                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Text("A analisar categorias e limites...", style = MaterialTheme.typography.bodySmall)
-                        }
-                        is AiInsightState.Success -> Text(
-                            text = adviceState.content,
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                        is AiInsightState.Error -> Text(
-                            text = adviceState.message,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.error
                         )
                     }
                 }

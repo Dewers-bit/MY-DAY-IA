@@ -24,7 +24,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
-import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Delete
@@ -37,7 +36,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -81,7 +79,6 @@ import com.example.ui.theme.CoralExpense
 import com.example.ui.theme.EmeraldIncome
 import com.example.ui.theme.NavyDeep
 import com.example.ui.theme.NavyPrimary
-import com.example.ui.viewmodel.SalaryProposalUiState
 import com.example.util.CurrencyUtils
 import com.example.util.DateUtilsPt
 import com.example.util.SalaryTrackingSummary
@@ -172,7 +169,6 @@ fun SalaryPaydayNotificationBanner(
 @Composable
 fun SalaryScreen(
     summary: SalaryTrackingSummary,
-    proposalState: SalaryProposalUiState,
     autoOpenDistributionCycleId: String?,
     onConsumeAutoOpenDistribution: () -> Unit,
     onSaveConfig: (Double, Int, String) -> Unit,
@@ -180,10 +176,7 @@ fun SalaryScreen(
     onConfirmSalaryReceipt: (cycleKey: String, description: String, amount: Double, dateMillis: Long, nextPaydayMillis: Long, notes: String) -> Unit,
     onSaveAllocations: (cycleId: String, receivedAmount: Double, allocations: List<SalaryAllocation>) -> Unit,
     onUpdateCycleDetails: (SalaryCycle) -> Unit,
-    onDeleteCycle: (SalaryCycle) -> Unit,
-    onRequestAiProposal: (Double) -> Unit,
-    onClearAiProposal: () -> Unit,
-    onAskGeminiAboutSalary: () -> Unit
+    onDeleteCycle: (SalaryCycle) -> Unit
 ) {
     var showConfigDialog by remember { mutableStateOf(false) }
     var showConfirmReceiptDialog by remember { mutableStateOf(false) }
@@ -288,29 +281,16 @@ fun SalaryScreen(
                         summary.cycleHistory.any { it.cycleKey == w.currentCycleKey }
                     } ?: false
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    Button(
+                        onClick = { showConfirmReceiptDialog = true },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("register_salary_receipt_button"),
+                        shape = RoundedCornerShape(12.dp)
                     ) {
-                        Button(
-                            onClick = { showConfirmReceiptDialog = true },
-                            modifier = Modifier
-                                .weight(1f)
-                                .testTag("register_salary_receipt_button"),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Icon(Icons.Rounded.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(if (currentConfirmed) "Novo Recebimento" else "Confirmar Recebimento")
-                        }
-                        OutlinedButton(
-                            onClick = onAskGeminiAboutSalary,
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Icon(Icons.Rounded.AutoAwesome, contentDescription = null, modifier = Modifier.size(16.dp), tint = EmeraldIncome)
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Gemini")
-                        }
+                        Icon(Icons.Rounded.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(if (currentConfirmed) "Novo Recebimento" else "Confirmar Recebimento")
                     }
                 }
             }
@@ -404,7 +384,7 @@ fun SalaryScreen(
 
                     if (summary.allocationBreakdowns.isEmpty()) {
                         Text(
-                            text = "Ainda não distribuiu este salário. Toque em \"Distribuir\" para organizar por categorias ou pedir uma sugestão ao Gemini.",
+                            text = "Ainda não distribuiu este salário. Toque em \"Distribuir\" para organizar por categorias.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -472,7 +452,7 @@ fun SalaryScreen(
                     ) {
                         Icon(Icons.Rounded.PieChart, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Distribuir Salário / Sugestão Gemini")
+                        Text("Distribuir Salário por Categorias")
                     }
                 }
             }
@@ -596,16 +576,9 @@ fun SalaryScreen(
     distributingCycle?.let { cycle ->
         SalaryDistributionDialog(
             cycle = cycle,
-            proposalState = proposalState,
-            onRequestAiProposal = { onRequestAiProposal(cycle.receivedAmount) },
-            onClearProposal = onClearAiProposal,
-            onDismiss = {
-                onClearAiProposal()
-                distributingCycle = null
-            },
+            onDismiss = { distributingCycle = null },
             onSave = { allocations ->
                 onSaveAllocations(cycle.id, cycle.receivedAmount, allocations)
-                onClearAiProposal()
                 distributingCycle = null
             }
         )
@@ -841,9 +814,6 @@ fun ConfirmSalaryReceiptDialog(
 @Composable
 fun SalaryDistributionDialog(
     cycle: SalaryCycle,
-    proposalState: SalaryProposalUiState,
-    onRequestAiProposal: () -> Unit,
-    onClearProposal: () -> Unit,
     onDismiss: () -> Unit,
     onSave: (List<SalaryAllocation>) -> Unit
 ) {
@@ -852,15 +822,6 @@ fun SalaryDistributionDialog(
             FinanceCatalog.salaryDistributionCategories.forEach { cat ->
                 val existing = cycle.allocations.firstOrNull { it.category == cat }?.allocatedAmount ?: 0.0
                 this[cat] = if (existing > 0.0) existing.toLong().toString() else ""
-            }
-        }
-    }
-
-    LaunchedEffect(proposalState) {
-        if (proposalState is SalaryProposalUiState.Success) {
-            FinanceCatalog.salaryDistributionCategories.forEach { cat ->
-                val suggested = proposalState.proposal.allocations[cat] ?: 0.0
-                categoryInputs[cat] = if (suggested > 0.0) suggested.toLong().toString() else ""
             }
         }
     }
@@ -920,58 +881,12 @@ fun SalaryDistributionDialog(
                     }
                 }
 
-                Button(
-                    onClick = onRequestAiProposal,
-                    enabled = proposalState !is SalaryProposalUiState.Loading,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("ai_propose_salary_distribution"),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = EmeraldIncome,
-                        contentColor = NavyDeep
-                    )
-                ) {
-                    if (proposalState is SalaryProposalUiState.Loading) {
-                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = NavyDeep)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Gemini a calcular distribuição...")
-                    } else {
-                        Icon(Icons.Rounded.AutoAwesome, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Sugerir Distribuição com Gemini", fontWeight = FontWeight.SemiBold)
-                    }
-                }
-
-                if (proposalState is SalaryProposalUiState.Success) {
-                    Surface(
-                        color = EmeraldIncome.copy(alpha = 0.12f),
-                        shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(
-                            text = proposalState.proposal.rationale,
-                            style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.padding(10.dp)
-                        )
-                    }
-                } else if (proposalState is SalaryProposalUiState.Error) {
-                    Text(
-                        text = proposalState.message,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error
-                    )
-                }
-
                 HorizontalDivider()
 
                 FinanceCatalog.salaryDistributionCategories.forEach { cat ->
                     OutlinedTextField(
                         value = categoryInputs[cat] ?: "",
-                        onValueChange = {
-                            if (proposalState !is SalaryProposalUiState.Idle) onClearProposal()
-                            categoryInputs[cat] = it
-                        },
+                        onValueChange = { categoryInputs[cat] = it },
                         label = { Text("$cat (Kz)") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         singleLine = true,

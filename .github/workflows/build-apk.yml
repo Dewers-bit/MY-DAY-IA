@@ -1,4 +1,4 @@
-name: Build My Day iA APK
+name: Build My Day APK
 
 on:
   push:
@@ -131,7 +131,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest-apk
-          name: My Day iA (APK)
+          name: My Day (APK)
           files: |
             app/build/outputs/apk/debug/*.apk
             app/build/outputs/apk/release/*.apk

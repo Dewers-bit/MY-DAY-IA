@@ -3,7 +3,6 @@ package com.example.ui.viewmodel
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.data.model.AiChatMessage
 import com.example.data.model.CategoryBudget
 import com.example.data.model.DailyTask
 import com.example.data.model.DebtItem
@@ -14,18 +13,13 @@ import com.example.data.model.SalaryConfig
 import com.example.data.model.SalaryCycle
 import com.example.data.model.SavingsGoal
 import com.example.data.model.UserProfile
-import com.example.data.repository.AiAssistantRepository
-import com.example.data.repository.AiParseResult
-import com.example.data.repository.FinancialContextSnapshot
 import com.example.data.repository.FinanceRepository
-import com.example.data.repository.SalaryDistributionProposal
 import com.example.util.CurrencyUtils
 import com.example.util.DateUtilsPt
 import com.example.util.SalaryTrackingCalculator
 import com.example.util.SalaryTrackingSummary
 import com.google.firebase.firestore.FirebaseFirestoreException
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -36,9 +30,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.util.UUID
 
 sealed interface AppDataState {
     data object Loading : AppDataState
@@ -86,23 +78,8 @@ data class MyDayDashboardData(
     val salarySummary: SalaryTrackingSummary
 )
 
-sealed interface AiInsightState {
-    data object Idle : AiInsightState
-    data object Loading : AiInsightState
-    data class Success(val content: String) : AiInsightState
-    data class Error(val message: String) : AiInsightState
-}
-
-sealed interface SalaryProposalUiState {
-    data object Idle : SalaryProposalUiState
-    data object Loading : SalaryProposalUiState
-    data class Success(val proposal: SalaryDistributionProposal) : SalaryProposalUiState
-    data class Error(val message: String) : SalaryProposalUiState
-}
-
 class MyDayViewModel(
     private val repository: FinanceRepository,
-    private val aiRepository: AiAssistantRepository,
     private val currentUserId: String,
     private val currentUserName: String,
     private val currentUserEmail: String
@@ -110,48 +87,6 @@ class MyDayViewModel(
 
     private val _snackbarEvents = MutableSharedFlow<String>()
     val snackbarEvents = _snackbarEvents.asSharedFlow()
-
-    private val welcomeMessage = AiChatMessage(
-        id = "welcome",
-        userId = currentUserId,
-        isUser = false,
-        text = "Olá! Sou o My Day iA, o seu assistente financeiro e de organização pessoal. Posso analisar os seus gastos em Kwanza (Kz), responder a perguntas sobre o seu orçamento ou registar despesas por mensagem (ex: \"Hoje gastei 2.500 Kz em transporte e 3.000 Kz em alimentação\").",
-        timestampMillis = 0L
-    )
-
-    private val _activeAiOverrides = MutableStateFlow<Map<String, AiChatMessage>>(emptyMap())
-
-    val aiMessages: StateFlow<List<AiChatMessage>> = combine(
-        repository.observeAiMessages(currentUserId)
-            .unwrapFirestoreErrors("aiMessages")
-            .catch { emit(emptyList()) },
-        _activeAiOverrides
-    ) { persisted, overrides ->
-        val mergedById = LinkedHashMap<String, AiChatMessage>(persisted.size + overrides.size)
-        persisted.forEach { mergedById[it.id] = it }
-        overrides.forEach { (id, overrideMsg) -> mergedById[id] = overrideMsg }
-        val sorted = mergedById.values.sortedBy { it.timestampMillis }
-        if (sorted.isEmpty()) listOf(welcomeMessage) else sorted
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000L),
-        initialValue = listOf(welcomeMessage)
-    )
-
-    private val _isAiBusy = MutableStateFlow(false)
-    val isAiBusy: StateFlow<Boolean> = _isAiBusy.asStateFlow()
-
-    private val _budgetAdviceState = MutableStateFlow<AiInsightState>(AiInsightState.Idle)
-    val budgetAdviceState: StateFlow<AiInsightState> = _budgetAdviceState.asStateFlow()
-
-    private val _savingsAdviceState = MutableStateFlow<Map<String, AiInsightState>>(emptyMap())
-    val savingsAdviceState: StateFlow<Map<String, AiInsightState>> = _savingsAdviceState.asStateFlow()
-
-    private val _scheduleAdviceState = MutableStateFlow<AiInsightState>(AiInsightState.Idle)
-    val scheduleAdviceState: StateFlow<AiInsightState> = _scheduleAdviceState.asStateFlow()
-
-    private val _salaryProposalState = MutableStateFlow<SalaryProposalUiState>(SalaryProposalUiState.Idle)
-    val salaryProposalState: StateFlow<SalaryProposalUiState> = _salaryProposalState.asStateFlow()
 
     private val _recentlyConfirmedCycleId = MutableStateFlow<String?>(null)
     val recentlyConfirmedCycleId: StateFlow<String?> = _recentlyConfirmedCycleId.asStateFlow()
@@ -329,22 +264,6 @@ class MyDayViewModel(
             ratio >= 0.70f -> BudgetAlertLevel.WARNING_70
             else -> null
         }
-    }
-
-    private fun currentSnapshot(): FinancialContextSnapshot? {
-        val state = dashboardState.value as? AppDataState.Success ?: return null
-        val d = state.data
-        return FinancialContextSnapshot(
-            userName = d.userProfile?.displayName?.ifBlank { currentUserName } ?: currentUserName,
-            monthlyBudgetLimit = d.globalBudgetLimit,
-            expenses = d.expenses,
-            incomes = d.incomes,
-            categoryBudgets = d.categoryBudgets,
-            savingsGoals = d.savingsGoals,
-            debts = d.debts,
-            tasks = d.tasks,
-            salarySummary = d.salarySummary
-        )
     }
 
     // --- EXPENSES ---
@@ -526,285 +445,6 @@ class MyDayViewModel(
 
     fun deleteSalaryCycle(cycle: SalaryCycle) = launchMutation("Ciclo salarial eliminado.") {
         repository.deleteSalaryCycle(cycle, deleteLinkedIncome = true).getOrThrow()
-    }
-
-    fun requestSalaryDistributionProposal(receivedAmount: Double) {
-        val snapshot = currentSnapshot()
-        if (snapshot == null) {
-            _salaryProposalState.value = SalaryProposalUiState.Error(
-                "Aguarde o carregamento dos seus dados financeiros e tente novamente."
-            )
-            return
-        }
-        viewModelScope.launch {
-            _salaryProposalState.value = SalaryProposalUiState.Loading
-            try {
-                val proposal = aiRepository.proposeSalaryDistribution(receivedAmount, snapshot)
-                _salaryProposalState.value = SalaryProposalUiState.Success(proposal)
-            } catch (e: TimeoutCancellationException) {
-                Log.e(TAG, "Salary AI proposal timed out", e)
-                _salaryProposalState.value = SalaryProposalUiState.Error(
-                    "O tempo de resposta da IA expirou. Tente novamente."
-                )
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                _salaryProposalState.value = SalaryProposalUiState.Error(
-                    e.localizedMessage ?: "Não foi possível gerar proposta de distribuição."
-                )
-            }
-        }
-    }
-
-    fun clearSalaryDistributionProposal() {
-        _salaryProposalState.value = SalaryProposalUiState.Idle
-    }
-
-    // --- AI ASSISTANT ---
-    fun sendAiMessage(userText: String) {
-        val trimmed = userText.trim()
-        if (trimmed.isEmpty() || _isAiBusy.value) return
-        val snapshot = currentSnapshot()
-        if (snapshot == null) {
-            viewModelScope.launch {
-                _snackbarEvents.emit("Aguarde o carregamento dos seus dados antes de consultar a IA.")
-            }
-            return
-        }
-
-        val recentHistory = aiMessages.value
-        val now = System.currentTimeMillis()
-        val userMsg = AiChatMessage(
-            id = UUID.randomUUID().toString(),
-            userId = currentUserId,
-            isUser = true,
-            text = trimmed,
-            timestampMillis = now
-        )
-        val assistantMsgId = UUID.randomUUID().toString()
-        val assistantPlaceholder = AiChatMessage(
-            id = assistantMsgId,
-            userId = currentUserId,
-            isUser = false,
-            text = "",
-            timestampMillis = now + 1L,
-            isStreaming = true
-        )
-
-        _activeAiOverrides.update {
-            it + (userMsg.id to userMsg) + (assistantMsgId to assistantPlaceholder)
-        }
-        _isAiBusy.value = true
-
-        viewModelScope.launch {
-            val saveUserJob = launch {
-                repository.saveAiMessage(userMsg)
-                    .onFailure { Log.w(TAG, "Failed to persist user AI message: ${it.message}") }
-            }
-            try {
-                when (val parseResult = aiRepository.detectNaturalLanguageExpenses(trimmed)) {
-                    is AiParseResult.ExpensesDetected -> {
-                        val finalized = assistantPlaceholder.copy(
-                            text = parseResult.replyIntro,
-                            pendingExpenses = parseResult.drafts,
-                            isStreaming = false
-                        )
-                        _activeAiOverrides.update { it + (assistantMsgId to finalized) }
-                        saveUserJob.join()
-                        repository.saveAiMessage(finalized)
-                            .onSuccess {
-                                _activeAiOverrides.update { map -> map - userMsg.id - assistantMsgId }
-                            }
-                            .onFailure { Log.w(TAG, "Failed to persist expense prompt AI message: ${it.message}") }
-                    }
-
-                    AiParseResult.ConversationalQuery -> {
-                        var latestText = ""
-                        aiRepository.streamAssistantReply(trimmed, snapshot, recentHistory).collect { partial ->
-                            latestText = partial
-                            _activeAiOverrides.update { map ->
-                                map + (assistantMsgId to assistantPlaceholder.copy(
-                                    text = partial,
-                                    isStreaming = true
-                                ))
-                            }
-                        }
-                        if (latestText.isBlank()) {
-                            throw IllegalStateException("O assistente não devolveu resposta.")
-                        }
-                        val finalized = assistantPlaceholder.copy(
-                            text = latestText,
-                            isStreaming = false
-                        )
-                        _activeAiOverrides.update { map -> map + (assistantMsgId to finalized) }
-                        saveUserJob.join()
-                        repository.saveAiMessage(finalized)
-                            .onSuccess {
-                                _activeAiOverrides.update { map -> map - userMsg.id - assistantMsgId }
-                            }
-                            .onFailure { Log.w(TAG, "Failed to persist AI reply: ${it.message}") }
-                    }
-                }
-            } catch (e: TimeoutCancellationException) {
-                Log.e(TAG, "AI reply timed out", e)
-                val errText = "O tempo de resposta da IA expirou. Tente novamente."
-                _activeAiOverrides.update { map ->
-                    map + (assistantMsgId to assistantPlaceholder.copy(text = errText, isStreaming = false))
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                Log.e(TAG, "AI reply failed", e)
-                val errText = "Não foi possível obter resposta da IA: ${e.localizedMessage ?: "Erro desconhecido"}"
-                _activeAiOverrides.update { map ->
-                    map + (assistantMsgId to assistantPlaceholder.copy(text = errText, isStreaming = false))
-                }
-            } finally {
-                _isAiBusy.value = false
-            }
-        }
-    }
-
-    fun confirmParsedExpenses(messageId: String) {
-        val msg = aiMessages.value.firstOrNull { it.id == messageId } ?: return
-        if (msg.expensesConfirmed || msg.pendingExpenses.isEmpty()) return
-
-        viewModelScope.launch {
-            try {
-                var savedCount = 0
-                for (draft in msg.pendingExpenses) {
-                    repository.addExpense(
-                        Expense(
-                            description = draft.description,
-                            amount = draft.amount,
-                            category = draft.category,
-                            paymentMethod = draft.paymentMethod,
-                            isFixed = draft.isFixed,
-                            notes = "Registado via My Day iA"
-                        )
-                    ).getOrThrow()
-                    savedCount++
-                }
-                val updated = msg.copy(
-                    expensesConfirmed = true,
-                    text = "Confirmado! $savedCount despesa(s) guardada(s) na sua conta."
-                )
-                if (_activeAiOverrides.value.containsKey(messageId)) {
-                    _activeAiOverrides.update { it + (messageId to updated) }
-                }
-                repository.saveAiMessage(updated)
-                    .onSuccess { _activeAiOverrides.update { it - messageId } }
-                    .onFailure { Log.w(TAG, "Failed to persist confirmed AI message: ${it.message}") }
-                _snackbarEvents.emit("$savedCount despesa(s) guardada(s) com sucesso!")
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                _snackbarEvents.emit(e.localizedMessage ?: "Erro ao guardar despesas.")
-            }
-        }
-    }
-
-    fun cancelParsedExpenses(messageId: String) {
-        val msg = aiMessages.value.firstOrNull { it.id == messageId } ?: return
-        val updated = msg.copy(
-            pendingExpenses = emptyList(),
-            text = "Registo cancelado. Nenhuma despesa foi guardada."
-        )
-        if (_activeAiOverrides.value.containsKey(messageId)) {
-            _activeAiOverrides.update { it + (messageId to updated) }
-        }
-        viewModelScope.launch {
-            repository.saveAiMessage(updated)
-                .onSuccess { _activeAiOverrides.update { it - messageId } }
-                .onFailure { Log.w(TAG, "Failed to persist cancelled AI message: ${it.message}") }
-        }
-    }
-
-    fun clearAiHistory() {
-        if (_isAiBusy.value) return
-        viewModelScope.launch {
-            _activeAiOverrides.value = emptyMap()
-            repository.clearAiMessages()
-                .onSuccess { _snackbarEvents.emit("Histórico da conversa limpo.") }
-                .onFailure { _snackbarEvents.emit(it.localizedMessage ?: "Erro ao limpar histórico.") }
-        }
-    }
-
-    fun requestBudgetAdvice() {
-        val snapshot = currentSnapshot()
-        if (snapshot == null) {
-            _budgetAdviceState.value = AiInsightState.Error(
-                "Aguarde o carregamento dos seus dados financeiros e tente novamente."
-            )
-            return
-        }
-        viewModelScope.launch {
-            _budgetAdviceState.value = AiInsightState.Loading
-            try {
-                val reply = aiRepository.generateBudgetAdvice(snapshot)
-                _budgetAdviceState.value = AiInsightState.Success(reply)
-            } catch (e: TimeoutCancellationException) {
-                _budgetAdviceState.value = AiInsightState.Error("O tempo de resposta da IA expirou. Tente novamente.")
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                _budgetAdviceState.value = AiInsightState.Error(
-                    e.localizedMessage ?: "Erro ao analisar orçamento."
-                )
-            }
-        }
-    }
-
-    fun requestSavingsAdvice(goal: SavingsGoal) {
-        val snapshot = currentSnapshot()
-        if (snapshot == null) {
-            _savingsAdviceState.update {
-                it + (goal.id to AiInsightState.Error("Aguarde o carregamento dos seus dados financeiros e tente novamente."))
-            }
-            return
-        }
-        viewModelScope.launch {
-            _savingsAdviceState.update { it + (goal.id to AiInsightState.Loading) }
-            try {
-                val reply = aiRepository.generateSavingsAdvice(goal, snapshot)
-                _savingsAdviceState.update { it + (goal.id to AiInsightState.Success(reply)) }
-            } catch (e: TimeoutCancellationException) {
-                _savingsAdviceState.update {
-                    it + (goal.id to AiInsightState.Error("O tempo de resposta da IA expirou. Tente novamente."))
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                _savingsAdviceState.update {
-                    it + (goal.id to AiInsightState.Error(e.localizedMessage ?: "Erro ao calcular plano."))
-                }
-            }
-        }
-    }
-
-    fun requestSchedulePlan(availableHoursNote: String) {
-        val state = dashboardState.value as? AppDataState.Success
-        if (state == null) {
-            _scheduleAdviceState.value = AiInsightState.Error(
-                "Aguarde o carregamento das suas tarefas e tente novamente."
-            )
-            return
-        }
-        viewModelScope.launch {
-            _scheduleAdviceState.value = AiInsightState.Loading
-            try {
-                val reply = aiRepository.organizeDailySchedule(state.data.tasks, availableHoursNote)
-                _scheduleAdviceState.value = AiInsightState.Success(reply)
-            } catch (e: TimeoutCancellationException) {
-                _scheduleAdviceState.value = AiInsightState.Error("O tempo de resposta da IA expirou. Tente novamente.")
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                _scheduleAdviceState.value = AiInsightState.Error(
-                    e.localizedMessage ?: "Erro ao organizar dia."
-                )
-            }
-        }
     }
 
     private fun launchMutation(successMessage: String, block: suspend () -> Unit) {

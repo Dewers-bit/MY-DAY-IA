@@ -22,6 +22,6 @@ dependencyResolutionManagement {
   }
 }
 
-rootProject.name = "My Day iA"
+rootProject.name = "My Day"
 
 include(":app")
