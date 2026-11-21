@@ -24,13 +24,24 @@ jobs:
 
       - name: Restore Firebase google-services.json if provided via Secret
         env:
-          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON || vars.GOOGLE_SERVICES_JSON }}
         run: |
           if [ ! -f app/google-services.json ] && [ -n "$GOOGLE_SERVICES_JSON" ]; then
-            printf '%s' "$GOOGLE_SERVICES_JSON" > app/google-services.json
-            echo "Restored app/google-services.json from GitHub Secret."
+            python3 -c '
+          import base64, json, os, pathlib
+          raw = os.environ["GOOGLE_SERVICES_JSON"].strip()
+          try:
+              data = json.loads(raw)
+          except Exception:
+              data = json.loads(base64.b64decode(raw).decode("utf-8").strip())
+          pathlib.Path("app/google-services.json").write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+          print("Restored app/google-services.json from GitHub Secret/Variable.")
+          ' || {
+              echo "::error::O secret GOOGLE_SERVICES_JSON não contém um JSON (nem Base64) válido."
+              exit 1
+            }
           elif [ ! -f app/google-services.json ]; then
-            echo "::error::Falta o secret GOOGLE_SERVICES_JSON no GitHub (Settings -> Secrets and variables -> Actions). Sem o google-services.json a app fecha ao abrir no telemóvel."
+            echo "::error::Falta o secret GOOGLE_SERVICES_JSON no GitHub (Settings -> Secrets and variables -> Actions -> New repository secret). Sem o google-services.json a app não liga ao Firebase no telemóvel."
             exit 1
           fi
           python3 -c "import json; json.load(open('app/google-services.json'))" || {
@@ -40,14 +51,14 @@ jobs:
 
       - name: Prepare debug keystore
         env:
-          DEBUG_KEYSTORE_BASE64: ${{ secrets.DEBUG_KEYSTORE_BASE64 }}
+          DEBUG_KEYSTORE_BASE64: ${{ secrets.DEBUG_KEYSTORE_BASE64 || vars.DEBUG_KEYSTORE_BASE64 }}
         run: |
           if [ -f debug.keystore.base64 ]; then
             tr -d '[:space:]' < debug.keystore.base64 | base64 -d > debug.keystore
             echo "Restored debug.keystore from debug.keystore.base64"
           elif [ -n "$DEBUG_KEYSTORE_BASE64" ]; then
             printf '%s' "$DEBUG_KEYSTORE_BASE64" | tr -d '[:space:]' | base64 -d > debug.keystore
-            echo "Restored debug.keystore from GitHub Secret."
+            echo "Restored debug.keystore from GitHub Secret/Variable."
           elif [ ! -f debug.keystore ]; then
             keytool -genkeypair -v \
               -keystore debug.keystore \
@@ -81,7 +92,7 @@ jobs:
       - name: Upload Debug APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: my-day-ia-debug-apk
+          name: my-day-debug-apk
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
 
@@ -122,7 +133,7 @@ jobs:
         if: steps.release_check.outputs.enabled == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: my-day-ia-release-apk
+          name: my-day-release-apk
           path: app/build/outputs/apk/release/*.apk
           if-no-files-found: error
 
