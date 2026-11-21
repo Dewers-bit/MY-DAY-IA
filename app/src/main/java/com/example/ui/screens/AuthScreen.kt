@@ -3,7 +3,10 @@ package com.example.ui.screens
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
+import android.content.pm.PackageManager
+import android.os.Build
 import android.util.Log
+import java.security.MessageDigest
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -100,6 +103,30 @@ private fun resolveDefaultWebClientId(context: Context): String? {
     }
 }
 
+@Suppress("DEPRECATION")
+private fun getApkSha1Fingerprint(context: Context): String? {
+    return try {
+        val signatures = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            val info = context.packageManager.getPackageInfo(
+                context.packageName,
+                PackageManager.GET_SIGNING_CERTIFICATES
+            )
+            info.signingInfo?.apkContentsSigners
+        } else {
+            val info = context.packageManager.getPackageInfo(
+                context.packageName,
+                PackageManager.GET_SIGNATURES
+            )
+            info.signatures
+        }
+        val certBytes = signatures?.firstOrNull()?.toByteArray() ?: return null
+        val digest = MessageDigest.getInstance("SHA-1").digest(certBytes)
+        digest.joinToString(":") { byte -> "%02X".format(byte) }
+    } catch (_: Exception) {
+        null
+    }
+}
+
 fun attemptAutoSignIn(
     context: Context,
     credentialManager: CredentialManager,
@@ -129,7 +156,7 @@ fun attemptAutoSignIn(
 
     scope.launch {
         try {
-            val credentialContext = (context as? Activity) ?: context
+            val credentialContext = context.findActivity() ?: context
             val result = credentialManager.getCredential(credentialContext, request)
             val credential = result.credential
             if (credential is CustomCredential && credential.type == TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
@@ -180,11 +207,16 @@ fun onGoogleSignInClicked(
                 onAuthError("Tipo de credencial inesperado.")
             }
         } catch (e: GetCredentialCancellationException) {
-            Log.w("Auth", "Google Sign-In cancelled or dismissed: ${e.message}", e)
+            val sha1 = getApkSha1Fingerprint(context)
+            Log.w("Auth", "Google Sign-In cancelled or dismissed (APK SHA-1=$sha1): ${e.message}", e)
             onAuthCancelled()
         } catch (e: NoCredentialException) {
-            Log.e("Auth", "No Google credential available", e)
-            onAuthError("Nenhuma conta Google encontrada ou configuração SHA-1 inválida no Firebase.")
+            val sha1 = getApkSha1Fingerprint(context)
+            Log.e("Auth", "No Google credential available (APK SHA-1=$sha1)", e)
+            val shaNote = if (sha1 != null) "\nSHA-1 deste APK: $sha1" else ""
+            onAuthError(
+                "Nenhuma conta Google encontrada ou o SHA-1 deste APK não está registado no Firebase.$shaNote"
+            )
         } catch (e: GetCredentialProviderConfigurationException) {
             Log.e("Auth", "Credential provider misconfigured", e)
             onAuthError("Google Play Services indisponível ou desactualizado neste dispositivo.")

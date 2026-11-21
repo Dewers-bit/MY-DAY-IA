@@ -53,12 +53,13 @@ jobs:
         env:
           DEBUG_KEYSTORE_BASE64: ${{ secrets.DEBUG_KEYSTORE_BASE64 || vars.DEBUG_KEYSTORE_BASE64 }}
         run: |
+          KEYSTORE_SOURCE="unknown"
           if [ -f debug.keystore.base64 ]; then
             tr -d '[:space:]' < debug.keystore.base64 | base64 -d > debug.keystore
-            echo "Restored debug.keystore from debug.keystore.base64"
+            KEYSTORE_SOURCE="debug.keystore.base64 (ficheiro do projeto)"
           elif [ -n "$DEBUG_KEYSTORE_BASE64" ]; then
             printf '%s' "$DEBUG_KEYSTORE_BASE64" | tr -d '[:space:]' | base64 -d > debug.keystore
-            echo "Restored debug.keystore from GitHub Secret/Variable."
+            KEYSTORE_SOURCE="DEBUG_KEYSTORE_BASE64 (GitHub Secret)"
           elif [ ! -f debug.keystore ]; then
             keytool -genkeypair -v \
               -keystore debug.keystore \
@@ -69,9 +70,18 @@ jobs:
               -keysize 2048 \
               -validity 10000 \
               -dname "CN=Android Debug,O=Android,C=US"
-            echo "Generated fallback debug.keystore"
+            KEYSTORE_SOURCE="fallback aleatório (NOVO SHA-1)"
           fi
-          keytool -list -v -keystore debug.keystore -storepass android | grep -E "Alias name:|SHA1:" || true
+          SHA1_LINE=$(keytool -list -v -keystore debug.keystore -storepass android | grep -E "SHA1:|SHA-1:" | head -n 1 | xargs)
+          echo "Keystore source: $KEYSTORE_SOURCE | $SHA1_LINE"
+          {
+            echo "### Assinatura do Debug APK"
+            echo "- **Origem da keystore:** $KEYSTORE_SOURCE"
+            echo "- **$SHA1_LINE**"
+            if [[ "$KEYSTORE_SOURCE" == *"fallback"* ]]; then
+              echo "::warning::Foi gerada uma keystore temporária porque falta o secret DEBUG_KEYSTORE_BASE64. Registe o $SHA1_LINE no Firebase Console (App Android) OU crie o secret DEBUG_KEYSTORE_BASE64 para o Entrar com Google funcionar."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Accept Android SDK licenses
         run: |
