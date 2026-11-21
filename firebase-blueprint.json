@@ -1,0 +1,216 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Personal settings and monthly budget configuration for a signed-in user.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Firebase Auth UID of the owner." },
+        "displayName": { "type": "string", "description": "User display name." },
+        "email": { "type": "string", "description": "User email address (PII)." },
+        "monthlyBudgetLimit": { "type": "number", "description": "Global monthly spending limit in Kwanza (Kz)." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp." }
+      },
+      "required": ["userId", "displayName", "email", "monthlyBudgetLimit", "createdAt", "updatedAt"]
+    },
+    "Expense": {
+      "title": "Expense",
+      "description": "User expense transaction in Kwanza (Kz).",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner UID." },
+        "description": { "type": "string", "description": "Expense name or description." },
+        "amount": { "type": "number", "description": "Amount spent in Kz." },
+        "category": { "type": "string", "description": "Expense category." },
+        "dateMillis": { "type": "integer", "description": "Transaction date in epoch milliseconds." },
+        "paymentMethod": { "type": "string", "description": "Payment method." },
+        "notes": { "type": "string", "description": "Optional notes." },
+        "isFixed": { "type": "boolean", "description": "True for fixed expenses, false for variable." },
+        "salaryCycleId": { "type": "string", "description": "Optional salary cycle ID if paid from a salary reserve." },
+        "reservedCategory": { "type": "string", "description": "Optional salary reserve category used to pay this expense." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp." }
+      },
+      "required": ["userId", "description", "amount", "category", "dateMillis", "paymentMethod", "notes", "isFixed", "createdAt", "updatedAt"]
+    },
+    "Income": {
+      "title": "Income",
+      "description": "User income entry in Kwanza (Kz).",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner UID." },
+        "description": { "type": "string", "description": "Income description." },
+        "amount": { "type": "number", "description": "Amount received in Kz." },
+        "source": { "type": "string", "description": "Origin of income." },
+        "dateMillis": { "type": "integer", "description": "Receipt date in epoch milliseconds." },
+        "incomeType": { "type": "string", "description": "Income type (Fixo, Variável, Pontual)." },
+        "notes": { "type": "string", "description": "Optional notes." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp." }
+      },
+      "required": ["userId", "description", "amount", "source", "dateMillis", "incomeType", "notes", "createdAt", "updatedAt"]
+    },
+    "CategoryBudget": {
+      "title": "CategoryBudget",
+      "description": "Individual monthly spending limit per expense category.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner UID." },
+        "category": { "type": "string", "description": "Expense category name." },
+        "monthlyLimit": { "type": "number", "description": "Monthly limit in Kz." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp." }
+      },
+      "required": ["userId", "category", "monthlyLimit", "createdAt", "updatedAt"]
+    },
+    "SavingsGoal": {
+      "title": "SavingsGoal",
+      "description": "Personal savings goal with target, current amount, and deadline.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner UID." },
+        "name": { "type": "string", "description": "Goal name." },
+        "targetAmount": { "type": "number", "description": "Target amount in Kz." },
+        "savedAmount": { "type": "number", "description": "Saved amount so far in Kz." },
+        "deadlineMillis": { "type": "integer", "description": "Target deadline in epoch milliseconds." },
+        "notes": { "type": "string", "description": "Optional notes." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp." }
+      },
+      "required": ["userId", "name", "targetAmount", "savedAmount", "deadlineMillis", "notes", "createdAt", "updatedAt"]
+    },
+    "DebtItem": {
+      "title": "DebtItem",
+      "description": "Debt owed by or owed to the user, including loans and recurring payments.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner UID." },
+        "title": { "type": "string", "description": "Debt or payment description." },
+        "counterparty": { "type": "string", "description": "Person or institution involved." },
+        "amount": { "type": "number", "description": "Total amount in Kz." },
+        "paidAmount": { "type": "number", "description": "Amount already settled in Kz." },
+        "direction": { "type": "string", "enum": ["OWE", "OWED"], "description": "OWE or OWED." },
+        "debtType": { "type": "string", "description": "Empréstimo, Prestação, Recorrente, or Pessoal." },
+        "dueDateMillis": { "type": "integer", "description": "Due date in epoch milliseconds." },
+        "isSettled": { "type": "boolean", "description": "True when fully paid/settled." },
+        "isRecurring": { "type": "boolean", "description": "True for recurring payments." },
+        "notes": { "type": "string", "description": "Optional notes." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp." }
+      },
+      "required": ["userId", "title", "counterparty", "amount", "paidAmount", "direction", "debtType", "dueDateMillis", "isSettled", "isRecurring", "notes", "createdAt", "updatedAt"]
+    },
+    "DailyTask": {
+      "title": "DailyTask",
+      "description": "Daily planner item: task, appointment, or reminder.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner UID." },
+        "title": { "type": "string", "description": "Task or appointment title." },
+        "notes": { "type": "string", "description": "Optional details." },
+        "dateMillis": { "type": "integer", "description": "Scheduled date in epoch milliseconds." },
+        "priority": { "type": "string", "enum": ["ALTA", "MÉDIA", "BAIXA"], "description": "Task priority." },
+        "itemType": { "type": "string", "enum": ["TAREFA", "COMPROMISSO", "LEMBRETE"], "description": "Item type." },
+        "timeLabel": { "type": "string", "description": "Scheduled time string (e.g., 09:30)." },
+        "isCompleted": { "type": "boolean", "description": "Completion flag." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp." }
+      },
+      "required": ["userId", "title", "notes", "dateMillis", "priority", "itemType", "timeLabel", "isCompleted", "createdAt", "updatedAt"]
+    },
+    "SalaryConfig": {
+      "title": "SalaryConfig",
+      "description": "User salary schedule configuration.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner UID." },
+        "monthlySalary": { "type": "number", "description": "Expected monthly salary in Kz." },
+        "paydayOfMonth": { "type": "integer", "description": "Usual payday day of month (1-31)." },
+        "frequency": { "type": "string", "enum": ["Mensal", "Quinzenal", "Semanal"], "description": "Salary frequency." },
+        "lastPromptedPeriodKey": { "type": "string", "description": "Last cycle key acknowledged or snoozed." },
+        "snoozedUntilMillis": { "type": "integer", "description": "Timestamp until which payday prompt is snoozed." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp." }
+      },
+      "required": ["userId", "monthlySalary", "paydayOfMonth", "frequency", "lastPromptedPeriodKey", "snoozedUntilMillis", "createdAt", "updatedAt"]
+    },
+    "SalaryCycle": {
+      "title": "SalaryCycle",
+      "description": "Confirmed salary cycle receipt and category allocations.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner UID." },
+        "cycleKey": { "type": "string", "description": "Unique period identifier for deduplication." },
+        "description": { "type": "string", "description": "Cycle description." },
+        "receivedAmount": { "type": "number", "description": "Salary amount confirmed in Kz." },
+        "receivedDateMillis": { "type": "integer", "description": "Confirmation receipt date." },
+        "nextPaydayMillis": { "type": "integer", "description": "Estimated next payday timestamp." },
+        "linkedIncomeId": { "type": "string", "description": "Linked Income document ID." },
+        "allocations": { "type": "array", "description": "Category allocation entries." },
+        "notes": { "type": "string", "description": "Optional cycle notes." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp." }
+      },
+      "required": ["userId", "cycleKey", "description", "receivedAmount", "receivedDateMillis", "nextPaydayMillis", "linkedIncomeId", "allocations", "notes", "createdAt", "updatedAt"]
+    },
+    "AiChatMessage": {
+      "title": "AiChatMessage",
+      "description": "Persisted user and My Day iA assistant chat turn with optional expense confirmation drafts.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner UID." },
+        "isUser": { "type": "boolean", "description": "True if authored by the user, false if by My Day iA." },
+        "text": { "type": "string", "description": "Message body text." },
+        "timestampMillis": { "type": "integer", "description": "Chronological ordering timestamp in epoch milliseconds." },
+        "pendingExpenses": { "type": "array", "description": "Optional parsed expense drafts awaiting confirmation." },
+        "expensesConfirmed": { "type": "boolean", "description": "True once parsed expenses have been saved." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp." }
+      },
+      "required": ["userId", "isUser", "text", "timestampMillis", "pendingExpenses", "expensesConfirmed", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Private user profile and global monthly budget setting."
+    },
+    "/users/{userId}/expenses/{expenseId}": {
+      "schema": { "$ref": "#/entities/Expense" },
+      "description": "User expenses subcollection."
+    },
+    "/users/{userId}/incomes/{incomeId}": {
+      "schema": { "$ref": "#/entities/Income" },
+      "description": "User incomes subcollection."
+    },
+    "/users/{userId}/categoryBudgets/{budgetId}": {
+      "schema": { "$ref": "#/entities/CategoryBudget" },
+      "description": "Per-category monthly budget limits."
+    },
+    "/users/{userId}/savingsGoals/{goalId}": {
+      "schema": { "$ref": "#/entities/SavingsGoal" },
+      "description": "User savings goals."
+    },
+    "/users/{userId}/debts/{debtId}": {
+      "schema": { "$ref": "#/entities/DebtItem" },
+      "description": "Debts and recurring payments."
+    },
+    "/users/{userId}/dailyTasks/{taskId}": {
+      "schema": { "$ref": "#/entities/DailyTask" },
+      "description": "Daily tasks, appointments, and reminders."
+    },
+    "/users/{userId}/salarySettings/{settingId}": {
+      "schema": { "$ref": "#/entities/SalaryConfig" },
+      "description": "User salary schedule configuration."
+    },
+    "/users/{userId}/salaryCycles/{cycleId}": {
+      "schema": { "$ref": "#/entities/SalaryCycle" },
+      "description": "Historical and active salary cycles with allocations."
+    },
+    "/users/{userId}/aiMessages/{messageId}": {
+      "schema": { "$ref": "#/entities/AiChatMessage" },
+      "description": "Private persisted My Day iA conversation history per user."
+    }
+  }
+}

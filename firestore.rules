@@ -1,0 +1,353 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net (Default-Deny)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidTimestampsOnCreate(data) {
+      return data.createdAt is timestamp &&
+             data.createdAt <= request.time &&
+             data.updatedAt is timestamp &&
+             data.updatedAt <= request.time;
+    }
+
+    function isValidTimestampsOnUpdate(data) {
+      return data.createdAt == existing().createdAt &&
+             data.updatedAt is timestamp &&
+             data.updatedAt <= request.time;
+    }
+
+    function isValidUserProfile(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 80 &&
+             data.email is string && data.email.size() <= 120 &&
+             data.monthlyBudgetLimit is number && data.monthlyBudgetLimit >= 0 && data.monthlyBudgetLimit <= 1000000000;
+    }
+
+    function isValidExpense(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.description is string && data.description.size() >= 1 && data.description.size() <= 140 &&
+             data.amount is number && data.amount > 0 && data.amount <= 1000000000 &&
+             data.category is string && data.category.size() >= 1 && data.category.size() <= 60 &&
+             data.dateMillis is int && data.dateMillis > 0 &&
+             data.paymentMethod is string && data.paymentMethod.size() >= 1 && data.paymentMethod.size() <= 40 &&
+             data.notes is string && data.notes.size() <= 400 &&
+             data.isFixed is bool &&
+             (!('salaryCycleId' in data) || (data.salaryCycleId is string && data.salaryCycleId.size() <= 128)) &&
+             (!('reservedCategory' in data) || (data.reservedCategory is string && data.reservedCategory.size() <= 60));
+    }
+
+    function isValidIncome(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.description is string && data.description.size() >= 1 && data.description.size() <= 140 &&
+             data.amount is number && data.amount > 0 && data.amount <= 1000000000 &&
+             data.source is string && data.source.size() >= 1 && data.source.size() <= 60 &&
+             data.dateMillis is int && data.dateMillis > 0 &&
+             data.incomeType is string && data.incomeType.size() >= 1 && data.incomeType.size() <= 40 &&
+             data.notes is string && data.notes.size() <= 400;
+    }
+
+    function isValidCategoryBudget(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.category is string && data.category.size() >= 1 && data.category.size() <= 60 &&
+             data.monthlyLimit is number && data.monthlyLimit > 0 && data.monthlyLimit <= 1000000000;
+    }
+
+    function isValidSavingsGoal(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.name is string && data.name.size() >= 1 && data.name.size() <= 100 &&
+             data.targetAmount is number && data.targetAmount > 0 && data.targetAmount <= 1000000000 &&
+             data.savedAmount is number && data.savedAmount >= 0 && data.savedAmount <= 1000000000 &&
+             data.deadlineMillis is int && data.deadlineMillis > 0 &&
+             data.notes is string && data.notes.size() <= 300;
+    }
+
+    function isValidDebtItem(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 120 &&
+             data.counterparty is string && data.counterparty.size() >= 1 && data.counterparty.size() <= 100 &&
+             data.amount is number && data.amount > 0 && data.amount <= 1000000000 &&
+             data.paidAmount is number && data.paidAmount >= 0 && data.paidAmount <= data.amount &&
+             data.direction in ['OWE', 'OWED'] &&
+             data.debtType is string && data.debtType.size() >= 1 && data.debtType.size() <= 40 &&
+             data.dueDateMillis is int && data.dueDateMillis > 0 &&
+             data.isSettled is bool &&
+             data.isRecurring is bool &&
+             data.notes is string && data.notes.size() <= 300;
+    }
+
+    function isValidDailyTask(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 140 &&
+             data.notes is string && data.notes.size() <= 300 &&
+             data.dateMillis is int && data.dateMillis > 0 &&
+             data.priority in ['ALTA', 'MÉDIA', 'BAIXA'] &&
+             data.itemType in ['TAREFA', 'COMPROMISSO', 'LEMBRETE'] &&
+             data.timeLabel is string && data.timeLabel.size() <= 20 &&
+             data.isCompleted is bool;
+    }
+
+    function isValidSalaryConfig(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.monthlySalary is number && data.monthlySalary >= 0 && data.monthlySalary <= 1000000000 &&
+             data.paydayOfMonth is int && data.paydayOfMonth >= 1 && data.paydayOfMonth <= 31 &&
+             data.frequency in ['Mensal', 'Quinzenal', 'Semanal'] &&
+             data.lastPromptedPeriodKey is string && data.lastPromptedPeriodKey.size() <= 40 &&
+             data.snoozedUntilMillis is int && data.snoozedUntilMillis >= 0;
+    }
+
+    function isValidSalaryCycle(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.cycleKey is string && data.cycleKey.size() >= 1 && data.cycleKey.size() <= 40 &&
+             data.description is string && data.description.size() >= 1 && data.description.size() <= 140 &&
+             data.receivedAmount is number && data.receivedAmount > 0 && data.receivedAmount <= 1000000000 &&
+             data.receivedDateMillis is int && data.receivedDateMillis > 0 &&
+             data.nextPaydayMillis is int && data.nextPaydayMillis > 0 &&
+             data.linkedIncomeId is string && data.linkedIncomeId.size() <= 128 &&
+             data.allocations is list && data.allocations.size() <= 20 &&
+             data.notes is string && data.notes.size() <= 300;
+    }
+
+    function isValidAiMessage(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.isUser is bool &&
+             data.text is string && data.text.size() <= 8000 &&
+             data.timestampMillis is int && data.timestampMillis > 0 &&
+             data.pendingExpenses is list && data.pendingExpenses.size() <= 20 &&
+             data.expensesConfirmed is bool;
+    }
+
+    match /users/{userId} {
+      allow get: if isOwner(userId) && isValidId(userId);
+      allow list: if false;
+
+      allow create: if isOwner(userId) &&
+                       isValidId(userId) &&
+                       incoming().keys().hasAll(['userId', 'displayName', 'email', 'monthlyBudgetLimit', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['userId', 'displayName', 'email', 'monthlyBudgetLimit', 'createdAt', 'updatedAt']) &&
+                       isValidUserProfile(incoming(), userId) &&
+                       isValidTimestampsOnCreate(incoming());
+
+      allow update: if isOwner(userId) &&
+                       isValidId(userId) &&
+                       isValidUserProfile(incoming(), userId) &&
+                       incoming().userId == existing().userId &&
+                       isValidTimestampsOnUpdate(incoming()) &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'email', 'monthlyBudgetLimit', 'updatedAt']);
+
+      allow delete: if isOwner(userId) && isValidId(userId);
+
+      match /expenses/{expenseId} {
+        allow get: if isOwner(userId) && isValidId(expenseId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(expenseId) &&
+                         incoming().keys().hasAll(['userId', 'description', 'amount', 'category', 'dateMillis', 'paymentMethod', 'notes', 'isFixed', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'description', 'amount', 'category', 'dateMillis', 'paymentMethod', 'notes', 'isFixed', 'salaryCycleId', 'reservedCategory', 'createdAt', 'updatedAt']) &&
+                         isValidExpense(incoming(), userId) &&
+                         isValidTimestampsOnCreate(incoming());
+
+        allow update: if isOwner(userId) &&
+                         isValidId(expenseId) &&
+                         isValidExpense(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         isValidTimestampsOnUpdate(incoming()) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['description', 'amount', 'category', 'dateMillis', 'paymentMethod', 'notes', 'isFixed', 'salaryCycleId', 'reservedCategory', 'updatedAt']);
+
+        allow delete: if isOwner(userId) && isValidId(expenseId);
+      }
+
+      match /incomes/{incomeId} {
+        allow get: if isOwner(userId) && isValidId(incomeId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(incomeId) &&
+                         incoming().keys().hasAll(['userId', 'description', 'amount', 'source', 'dateMillis', 'incomeType', 'notes', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'description', 'amount', 'source', 'dateMillis', 'incomeType', 'notes', 'createdAt', 'updatedAt']) &&
+                         isValidIncome(incoming(), userId) &&
+                         isValidTimestampsOnCreate(incoming());
+
+        allow update: if isOwner(userId) &&
+                         isValidId(incomeId) &&
+                         isValidIncome(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         isValidTimestampsOnUpdate(incoming()) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['description', 'amount', 'source', 'dateMillis', 'incomeType', 'notes', 'updatedAt']);
+
+        allow delete: if isOwner(userId) && isValidId(incomeId);
+      }
+
+      match /categoryBudgets/{budgetId} {
+        allow get: if isOwner(userId) && isValidId(budgetId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(budgetId) &&
+                         incoming().keys().hasAll(['userId', 'category', 'monthlyLimit', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'category', 'monthlyLimit', 'createdAt', 'updatedAt']) &&
+                         isValidCategoryBudget(incoming(), userId) &&
+                         isValidTimestampsOnCreate(incoming());
+
+        allow update: if isOwner(userId) &&
+                         isValidId(budgetId) &&
+                         isValidCategoryBudget(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         isValidTimestampsOnUpdate(incoming()) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['category', 'monthlyLimit', 'updatedAt']);
+
+        allow delete: if isOwner(userId) && isValidId(budgetId);
+      }
+
+      match /savingsGoals/{goalId} {
+        allow get: if isOwner(userId) && isValidId(goalId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(goalId) &&
+                         incoming().keys().hasAll(['userId', 'name', 'targetAmount', 'savedAmount', 'deadlineMillis', 'notes', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'name', 'targetAmount', 'savedAmount', 'deadlineMillis', 'notes', 'createdAt', 'updatedAt']) &&
+                         isValidSavingsGoal(incoming(), userId) &&
+                         isValidTimestampsOnCreate(incoming());
+
+        allow update: if isOwner(userId) &&
+                         isValidId(goalId) &&
+                         isValidSavingsGoal(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         isValidTimestampsOnUpdate(incoming()) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['name', 'targetAmount', 'savedAmount', 'deadlineMillis', 'notes', 'updatedAt']);
+
+        allow delete: if isOwner(userId) && isValidId(goalId);
+      }
+
+      match /debts/{debtId} {
+        allow get: if isOwner(userId) && isValidId(debtId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(debtId) &&
+                         incoming().keys().hasAll(['userId', 'title', 'counterparty', 'amount', 'paidAmount', 'direction', 'debtType', 'dueDateMillis', 'isSettled', 'isRecurring', 'notes', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'title', 'counterparty', 'amount', 'paidAmount', 'direction', 'debtType', 'dueDateMillis', 'isSettled', 'isRecurring', 'notes', 'createdAt', 'updatedAt']) &&
+                         isValidDebtItem(incoming(), userId) &&
+                         isValidTimestampsOnCreate(incoming());
+
+        allow update: if isOwner(userId) &&
+                         isValidId(debtId) &&
+                         isValidDebtItem(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         isValidTimestampsOnUpdate(incoming()) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['title', 'counterparty', 'amount', 'paidAmount', 'direction', 'debtType', 'dueDateMillis', 'isSettled', 'isRecurring', 'notes', 'updatedAt']);
+
+        allow delete: if isOwner(userId) && isValidId(debtId);
+      }
+
+      match /dailyTasks/{taskId} {
+        allow get: if isOwner(userId) && isValidId(taskId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(taskId) &&
+                         incoming().keys().hasAll(['userId', 'title', 'notes', 'dateMillis', 'priority', 'itemType', 'timeLabel', 'isCompleted', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'title', 'notes', 'dateMillis', 'priority', 'itemType', 'timeLabel', 'isCompleted', 'createdAt', 'updatedAt']) &&
+                         isValidDailyTask(incoming(), userId) &&
+                         isValidTimestampsOnCreate(incoming());
+
+        allow update: if isOwner(userId) &&
+                         isValidId(taskId) &&
+                         isValidDailyTask(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         isValidTimestampsOnUpdate(incoming()) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['title', 'notes', 'dateMillis', 'priority', 'itemType', 'timeLabel', 'isCompleted', 'updatedAt']);
+
+        allow delete: if isOwner(userId) && isValidId(taskId);
+      }
+
+      match /salarySettings/{settingId} {
+        allow get: if isOwner(userId) && isValidId(settingId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(settingId) &&
+                         incoming().keys().hasAll(['userId', 'monthlySalary', 'paydayOfMonth', 'frequency', 'lastPromptedPeriodKey', 'snoozedUntilMillis', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'monthlySalary', 'paydayOfMonth', 'frequency', 'lastPromptedPeriodKey', 'snoozedUntilMillis', 'createdAt', 'updatedAt']) &&
+                         isValidSalaryConfig(incoming(), userId) &&
+                         isValidTimestampsOnCreate(incoming());
+
+        allow update: if isOwner(userId) &&
+                         isValidId(settingId) &&
+                         isValidSalaryConfig(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         isValidTimestampsOnUpdate(incoming()) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['monthlySalary', 'paydayOfMonth', 'frequency', 'lastPromptedPeriodKey', 'snoozedUntilMillis', 'updatedAt']);
+
+        allow delete: if isOwner(userId) && isValidId(settingId);
+      }
+
+      match /salaryCycles/{cycleId} {
+        allow get: if isOwner(userId) && isValidId(cycleId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(cycleId) &&
+                         incoming().keys().hasAll(['userId', 'cycleKey', 'description', 'receivedAmount', 'receivedDateMillis', 'nextPaydayMillis', 'linkedIncomeId', 'allocations', 'notes', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'cycleKey', 'description', 'receivedAmount', 'receivedDateMillis', 'nextPaydayMillis', 'linkedIncomeId', 'allocations', 'notes', 'createdAt', 'updatedAt']) &&
+                         isValidSalaryCycle(incoming(), userId) &&
+                         isValidTimestampsOnCreate(incoming());
+
+        allow update: if isOwner(userId) &&
+                         isValidId(cycleId) &&
+                         isValidSalaryCycle(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         isValidTimestampsOnUpdate(incoming()) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['cycleKey', 'description', 'receivedAmount', 'receivedDateMillis', 'nextPaydayMillis', 'linkedIncomeId', 'allocations', 'notes', 'updatedAt']);
+
+        allow delete: if isOwner(userId) && isValidId(cycleId);
+      }
+
+      match /aiMessages/{messageId} {
+        allow get: if isOwner(userId) && isValidId(messageId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(messageId) &&
+                         incoming().keys().hasAll(['userId', 'isUser', 'text', 'timestampMillis', 'pendingExpenses', 'expensesConfirmed', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'isUser', 'text', 'timestampMillis', 'pendingExpenses', 'expensesConfirmed', 'createdAt', 'updatedAt']) &&
+                         isValidAiMessage(incoming(), userId) &&
+                         isValidTimestampsOnCreate(incoming());
+
+        allow update: if isOwner(userId) &&
+                         isValidId(messageId) &&
+                         isValidAiMessage(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         isValidTimestampsOnUpdate(incoming()) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['text', 'pendingExpenses', 'expensesConfirmed', 'updatedAt']);
+
+        allow delete: if isOwner(userId) && isValidId(messageId);
+      }
+    }
+  }
+}
