@@ -1,3 +1,11 @@
 <resources>
     <string name="app_name">My Day</string>
+    <string name="admin_section_label">Administração</string>
+    <string name="admin_monitoring_title">Monitoramento (Admin)</string>
+    <string name="admin_monitoring_subtitle">Total de utilizadores registados na aplicação</string>
+    <string name="admin_monitoring_users_label">utilizadores registados no My Day</string>
+    <string name="admin_monitoring_privacy_note">Apenas contagem agregada. Os dados financeiros individuais permanecem privados.</string>
+    <string name="admin_monitoring_loading">A consultar servidor…</string>
+    <string name="admin_monitoring_refresh">Actualizar</string>
+    <string name="admin_monitoring_close">Fechar</string>
 </resources>

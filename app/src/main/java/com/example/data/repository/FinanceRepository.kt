@@ -18,6 +18,7 @@ import com.example.util.handleFirestoreError
 import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.auth
+import com.google.firebase.firestore.AggregateSource
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
@@ -947,5 +948,32 @@ class FinanceRepository(
             handleFirestoreError(e, OperationType.DELETE, collectionRef.path)
             throw e
         }
+    }
+
+    // --- ADMIN MONITORING (USER COUNT ONLY) ---
+    suspend fun fetchTotalUsersCount(): Result<Long> = runCatching {
+        requireUserId()
+        val email = auth.currentUser?.email
+        require(isAdminEmail(email)) {
+            "Acesso restrito ao administrador."
+        }
+        try {
+            val snapshot = db.collection("users")
+                .count()
+                .get(AggregateSource.SERVER)
+                .await()
+            snapshot.count
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.LIST, "users")
+            throw e
+        }
+    }
+
+    companion object {
+        const val ADMIN_EMAIL = "dewersmatari@gmail.com"
+        fun isAdminEmail(email: String?): Boolean =
+            email?.trim().equals(ADMIN_EMAIL, ignoreCase = true)
     }
 }

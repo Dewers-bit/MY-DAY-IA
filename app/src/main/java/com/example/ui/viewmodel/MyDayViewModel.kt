@@ -38,6 +38,13 @@ sealed interface AppDataState {
     data class Error(val message: String) : AppDataState
 }
 
+sealed interface AdminUsersCountState {
+    data object Idle : AdminUsersCountState
+    data object Loading : AdminUsersCountState
+    data class Success(val totalUsers: Long) : AdminUsersCountState
+    data class Error(val message: String) : AdminUsersCountState
+}
+
 enum class BudgetAlertLevel(val label: String, val threshold: Int) {
     WARNING_70("70% atingido", 70),
     HIGH_85("85% atingido", 85),
@@ -90,6 +97,11 @@ class MyDayViewModel(
 
     private val _recentlyConfirmedCycleId = MutableStateFlow<String?>(null)
     val recentlyConfirmedCycleId: StateFlow<String?> = _recentlyConfirmedCycleId.asStateFlow()
+
+    val isAdmin: Boolean = FinanceRepository.isAdminEmail(currentUserEmail)
+
+    private val _adminUsersCountState = MutableStateFlow<AdminUsersCountState>(AdminUsersCountState.Idle)
+    val adminUsersCountState: StateFlow<AdminUsersCountState> = _adminUsersCountState.asStateFlow()
 
     init {
         viewModelScope.launch {
@@ -445,6 +457,23 @@ class MyDayViewModel(
 
     fun deleteSalaryCycle(cycle: SalaryCycle) = launchMutation("Ciclo salarial eliminado.") {
         repository.deleteSalaryCycle(cycle, deleteLinkedIncome = true).getOrThrow()
+    }
+
+    fun refreshAdminUsersCount() {
+        if (!isAdmin) return
+        viewModelScope.launch {
+            _adminUsersCountState.value = AdminUsersCountState.Loading
+            repository.fetchTotalUsersCount()
+                .onSuccess { count ->
+                    _adminUsersCountState.value = AdminUsersCountState.Success(count)
+                }
+                .onFailure { error ->
+                    if (error is CancellationException) throw error
+                    _adminUsersCountState.value = AdminUsersCountState.Error(
+                        error.localizedMessage ?: "Não foi possível obter o total de utilizadores."
+                    )
+                }
+        }
     }
 
     private fun launchMutation(successMessage: String, block: suspend () -> Unit) {

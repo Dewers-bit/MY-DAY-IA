@@ -37,6 +37,8 @@ import androidx.compose.material.icons.rounded.Menu
 import androidx.compose.material.icons.rounded.Payments
 import androidx.compose.material.icons.rounded.PieChart
 import androidx.compose.material.icons.rounded.Savings
+import androidx.compose.material.icons.rounded.SupervisorAccount
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -57,6 +59,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
@@ -74,6 +77,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.credentials.CredentialManager
@@ -103,6 +107,7 @@ import com.example.ui.screens.SavingsScreen
 import com.example.ui.screens.signOutUser
 import com.example.ui.theme.EmeraldIncome
 import com.example.ui.theme.MyDayIaTheme
+import com.example.ui.viewmodel.AdminUsersCountState
 import com.example.ui.viewmodel.AppDataState
 import com.example.ui.viewmodel.MyDayViewModel
 import com.google.firebase.Firebase
@@ -248,6 +253,7 @@ private fun AuthenticatedMyDayShell(
 
     val dashboardState by viewModel.dashboardState.collectAsStateWithLifecycle()
     val recentlyConfirmedCycleId by viewModel.recentlyConfirmedCycleId.collectAsStateWithLifecycle()
+    val adminUsersCountState by viewModel.adminUsersCountState.collectAsStateWithLifecycle()
 
     val navController = rememberNavController()
     val navBackStack by navController.currentBackStackEntryAsState()
@@ -262,6 +268,7 @@ private fun AuthenticatedMyDayShell(
 
     var pendingCreateExpense by remember { mutableStateOf(false) }
     var pendingCreateIncome by remember { mutableStateOf(false) }
+    var showAdminMonitoringDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.snackbarEvents.collect { msg ->
@@ -367,6 +374,30 @@ private fun AuthenticatedMyDayShell(
                                 navigateTo(dest.route)
                             },
                             modifier = Modifier.padding(vertical = 2.dp)
+                        )
+                    }
+
+                    if (viewModel.isAdmin) {
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                        Text(
+                            text = stringResource(R.string.admin_section_label),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                        )
+                        NavigationDrawerItem(
+                            icon = { Icon(Icons.Rounded.SupervisorAccount, contentDescription = null) },
+                            label = { Text(stringResource(R.string.admin_monitoring_title)) },
+                            selected = false,
+                            onClick = {
+                                scope.launch { drawerState.close() }
+                                showAdminMonitoringDialog = true
+                                viewModel.refreshAdminUsersCount()
+                            },
+                            modifier = Modifier
+                                .padding(vertical = 2.dp)
+                                .testTag("admin_monitoring_drawer_item")
                         )
                     }
 
@@ -651,4 +682,137 @@ private fun AuthenticatedMyDayShell(
             }
         }
     }
+
+    if (showAdminMonitoringDialog && viewModel.isAdmin) {
+        AdminMonitoringDialog(
+            state = adminUsersCountState,
+            onRefresh = { viewModel.refreshAdminUsersCount() },
+            onDismiss = { showAdminMonitoringDialog = false }
+        )
+    }
+}
+
+@Composable
+private fun AdminMonitoringDialog(
+    state: AdminUsersCountState,
+    onRefresh: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = {
+            Icon(
+                imageVector = Icons.Rounded.SupervisorAccount,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary
+            )
+        },
+        title = {
+            Text(
+                text = stringResource(R.string.admin_monitoring_title),
+                fontWeight = FontWeight.SemiBold
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    text = stringResource(R.string.admin_monitoring_subtitle),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                when (state) {
+                    AdminUsersCountState.Idle,
+                    AdminUsersCountState.Loading -> {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                strokeWidth = 2.5.dp,
+                                color = EmeraldIncome
+                            )
+                            Text(
+                                text = stringResource(R.string.admin_monitoring_loading),
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                    }
+                    is AdminUsersCountState.Success -> {
+                        Surface(
+                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f),
+                            shape = RoundedCornerShape(16.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("admin_users_count_card")
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Text(
+                                    text = state.totalUsers.toString(),
+                                    style = MaterialTheme.typography.displaySmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Text(
+                                    text = stringResource(R.string.admin_monitoring_users_label),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                    is AdminUsersCountState.Error -> {
+                        Surface(
+                            color = MaterialTheme.colorScheme.errorContainer,
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = state.message,
+                                color = MaterialTheme.colorScheme.onErrorContainer,
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.padding(12.dp)
+                            )
+                        }
+                    }
+                }
+
+                Text(
+                    text = stringResource(R.string.admin_monitoring_privacy_note),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = onRefresh,
+                enabled = state !is AdminUsersCountState.Loading,
+                modifier = Modifier.testTag("admin_refresh_count_button")
+            ) {
+                Text(stringResource(R.string.admin_monitoring_refresh))
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss,
+                modifier = Modifier.testTag("admin_close_dialog_button")
+            ) {
+                Text(stringResource(R.string.admin_monitoring_close))
+            }
+        }
+    )
 }

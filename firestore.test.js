@@ -303,3 +303,74 @@ test("User can manage incomes, budgets, savings goals, debts, and daily tasks", 
   await assertFails(bobDb.collection("users").doc(ALICE_UID).collection("aiMessages").get());
   await assertFails(bobDb.collection("users").doc(ALICE_UID).collection("aiMessages").doc("msg_1").get());
 });
+
+test("Verified admin (dewersmatari@gmail.com) can list/count users but cannot access private user data or write profiles", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    const now = serverTime();
+    await ctx.firestore().collection("users").doc(ALICE_UID).set({
+      userId: ALICE_UID,
+      displayName: "Ana Silva",
+      email: "ana@example.com",
+      monthlyBudgetLimit: 250000,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await ctx.firestore().collection("users").doc(BOB_UID).set({
+      userId: BOB_UID,
+      displayName: "Bruno",
+      email: "bruno@example.com",
+      monthlyBudgetLimit: 100000,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await ctx.firestore().collection("users").doc(ALICE_UID).collection("expenses").doc("exp_1").set({
+      userId: ALICE_UID,
+      description: "Privado",
+      amount: 5000,
+      category: "Outros",
+      dateMillis: Date.now(),
+      paymentMethod: "Dinheiro",
+      notes: "",
+      isFixed: false,
+      createdAt: now,
+      updatedAt: now,
+    });
+  });
+
+  const adminDb = testEnv.authenticatedContext("admin_uid", {
+    email: "dewersmatari@gmail.com",
+    email_verified: true,
+  }).firestore();
+  const usersSnap = await assertSucceeds(adminDb.collection("users").get());
+  if (usersSnap.size !== 2) {
+    throw new Error(`Expected 2 users, got ${usersSnap.size}`);
+  }
+
+  // Admin still cannot read single private financial subcollections or overwrite another user's profile
+  await assertFails(adminDb.collection("users").doc(ALICE_UID).get());
+  await assertFails(adminDb.collection("users").doc(ALICE_UID).collection("expenses").get());
+  await assertFails(adminDb.collection("users").doc(ALICE_UID).collection("expenses").doc("exp_1").get());
+  await assertFails(
+    adminDb.collection("users").doc(ALICE_UID).update({
+      monthlyBudgetLimit: 999999,
+      updatedAt: serverTime(),
+    })
+  );
+
+  // Unverified admin token and regular users cannot list users
+  const unverifiedAdminDb = testEnv.authenticatedContext("admin_unverified", {
+    email: "dewersmatari@gmail.com",
+    email_verified: false,
+  }).firestore();
+  await assertFails(unverifiedAdminDb.collection("users").get());
+
+  const aliceDb = testEnv.authenticatedContext(ALICE_UID, {
+    email: "ana@example.com",
+    email_verified: true,
+  }).firestore();
+  await assertFails(aliceDb.collection("users").get());
+
+  const unauthDb = testEnv.unauthenticatedContext().firestore();
+  await assertFails(unauthDb.collection("users").get());
+});
+

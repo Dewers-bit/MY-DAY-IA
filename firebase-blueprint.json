@@ -174,7 +174,7 @@
   "firestore": {
     "/users/{userId}": {
       "schema": { "$ref": "#/entities/UserProfile" },
-      "description": "Private user profile and global monthly budget setting."
+      "description": "Private user profile and global monthly budget setting; list/count access allowed solely for verified admin (dewersmatari@gmail.com) monitoring."
     },
     "/users/{userId}/expenses/{expenseId}": {
       "schema": { "$ref": "#/entities/Expense" },
