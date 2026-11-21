@@ -54,11 +54,19 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.widget.Toast
+import androidx.compose.material.icons.rounded.ContentCopy
+import androidx.compose.ui.platform.LocalContext
+import com.example.BuildConfig
 import com.example.data.model.AiChatMessage
 import com.example.ui.theme.CoralExpense
 import com.example.ui.theme.EmeraldIncome
 import com.example.ui.theme.NavyDeep
 import com.example.util.CurrencyUtils
+import com.example.util.getLocalAppCheckDebugToken
 
 @Composable
 fun AiAssistantScreen(
@@ -281,6 +289,63 @@ private fun AiMessageBubble(
                         style = MaterialTheme.typography.bodyMedium,
                         color = textColor
                     )
+                    val isAppCheckError = !message.isUser && BuildConfig.DEBUG && (
+                        message.text.contains("403", ignoreCase = true) ||
+                            message.text.contains("app check", ignoreCase = true) ||
+                            message.text.contains("appcheck", ignoreCase = true) ||
+                            message.text.contains("attestation", ignoreCase = true)
+                        )
+                    if (isAppCheckError) {
+                        val context = LocalContext.current
+                        val debugToken = remember(message.id) {
+                            getLocalAppCheckDebugToken(context)
+                        }
+                        if (!debugToken.isNullOrBlank()) {
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Card(
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
+                                ),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(12.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Text(
+                                        text = "Build Debug no telemóvel: registe o token abaixo no Firebase Console (App Check → Gerir tokens de depuração) para ativar a IA neste dispositivo.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    OutlinedButton(
+                                        onClick = {
+                                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                                            clipboard?.setPrimaryClip(
+                                                ClipData.newPlainText("App Check Debug Token", debugToken)
+                                            )
+                                            Toast.makeText(
+                                                context,
+                                                "Token Debug copiado!",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                        },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .testTag("copy_appcheck_debug_token"),
+                                        shape = RoundedCornerShape(10.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.ContentCopy,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text("Copiar Token Debug")
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
 
                 if (message.pendingExpenses.isNotEmpty()) {

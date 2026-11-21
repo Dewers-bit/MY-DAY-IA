@@ -2,6 +2,7 @@ package com.example.ui.screens
 
 import android.app.Activity
 import android.content.Context
+import android.content.ContextWrapper
 import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -62,6 +63,9 @@ import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
 import androidx.credentials.exceptions.GetCredentialCancellationException
+import androidx.credentials.exceptions.GetCredentialException
+import androidx.credentials.exceptions.GetCredentialProviderConfigurationException
+import androidx.credentials.exceptions.NoCredentialException
 import com.example.R
 import com.example.ui.theme.EmeraldIncome
 import com.example.ui.theme.NavyDeep
@@ -79,6 +83,12 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
+
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
+}
 
 private fun resolveDefaultWebClientId(context: Context): String? {
     val resId = context.resources.getIdentifier("default_web_client_id", "string", context.packageName)
@@ -157,7 +167,7 @@ fun onGoogleSignInClicked(
 
     scope.launch {
         try {
-            val activity = context as? Activity
+            val activity = context.findActivity()
                 ?: throw IllegalStateException("Contexto de Activity necessário para autenticação.")
             val result = credentialManager.getCredential(activity, request)
             val credential = result.credential
@@ -172,6 +182,15 @@ fun onGoogleSignInClicked(
         } catch (e: GetCredentialCancellationException) {
             Log.w("Auth", "Google Sign-In cancelled or dismissed: ${e.message}", e)
             onAuthCancelled()
+        } catch (e: NoCredentialException) {
+            Log.e("Auth", "No Google credential available", e)
+            onAuthError("Nenhuma conta Google encontrada ou configuração SHA-1 inválida no Firebase.")
+        } catch (e: GetCredentialProviderConfigurationException) {
+            Log.e("Auth", "Credential provider misconfigured", e)
+            onAuthError("Google Play Services indisponível ou desactualizado neste dispositivo.")
+        } catch (e: GetCredentialException) {
+            Log.e("Auth", "Google Sign-In credential error", e)
+            onAuthError(e.localizedMessage ?: "Falha na autenticação com Google.")
         } catch (e: Exception) {
             Log.e("Auth", "Google Sign-In failed", e)
             onAuthError(e.localizedMessage ?: "Falha na autenticação com Google.")

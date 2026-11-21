@@ -70,22 +70,22 @@ object CurrencyUtils {
 
 object DateUtilsPt {
     private val ptLocale = Locale.forLanguageTag("pt-PT")
-    private val dayMonthFormat = SimpleDateFormat("dd MMM", ptLocale)
-    private val fullDateFormat = SimpleDateFormat("dd/MM/yyyy", ptLocale)
-    private val monthYearFormat = SimpleDateFormat("MMMM yyyy", ptLocale)
-    private val weekdayDateFormat = SimpleDateFormat("EEEE, dd 'de' MMMM", ptLocale)
+    private val dayMonthFormat = ThreadLocal.withInitial { SimpleDateFormat("dd MMM", ptLocale) }
+    private val fullDateFormat = ThreadLocal.withInitial { SimpleDateFormat("dd/MM/yyyy", ptLocale) }
+    private val monthYearFormat = ThreadLocal.withInitial { SimpleDateFormat("MMMM yyyy", ptLocale) }
+    private val weekdayDateFormat = ThreadLocal.withInitial { SimpleDateFormat("EEEE, dd 'de' MMMM", ptLocale) }
 
-    fun formatShortDate(millis: Long): String = dayMonthFormat.format(Date(millis))
+    fun formatShortDate(millis: Long): String = requireNotNull(dayMonthFormat.get()).format(Date(millis))
 
-    fun formatFullDate(millis: Long): String = fullDateFormat.format(Date(millis))
+    fun formatFullDate(millis: Long): String = requireNotNull(fullDateFormat.get()).format(Date(millis))
 
     fun formatMonthYear(millis: Long): String {
-        val text = monthYearFormat.format(Date(millis))
+        val text = requireNotNull(monthYearFormat.get()).format(Date(millis))
         return text.replaceFirstChar { if (it.isLowerCase()) it.titlecase(ptLocale) else it.toString() }
     }
 
     fun formatWeekdayDate(millis: Long): String {
-        val text = weekdayDateFormat.format(Date(millis))
+        val text = requireNotNull(weekdayDateFormat.get()).format(Date(millis))
         return text.replaceFirstChar { if (it.isLowerCase()) it.titlecase(ptLocale) else it.toString() }
     }
 

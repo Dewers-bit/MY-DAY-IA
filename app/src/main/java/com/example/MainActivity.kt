@@ -110,6 +110,7 @@ import com.example.ui.viewmodel.AppDataState
 import com.example.ui.viewmodel.MyDayViewModel
 import com.example.util.configureAppCheck
 import com.google.firebase.Firebase
+import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.auth
@@ -178,9 +179,35 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun AppNavigation(
     isDarkTheme: Boolean,
-    onToggleTheme: () -> Unit,
-    auth: FirebaseAuth = Firebase.auth
+    onToggleTheme: () -> Unit
 ) {
+    val context = LocalContext.current
+    val isFirebaseReady = remember(context) {
+        FirebaseApp.getApps(context).isNotEmpty() || FirebaseApp.initializeApp(context) != null
+    }
+    if (!isFirebaseReady) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Surface(
+                color = MaterialTheme.colorScheme.errorContainer,
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Text(
+                    text = "Configuração Firebase em falta neste APK (google-services.json). Gere novamente o APK com o ficheiro google-services.json incluído.",
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(16.dp)
+                )
+            }
+        }
+        return
+    }
+
+    val auth: FirebaseAuth = remember { Firebase.auth }
     val currentUser by auth.authStateFlow().collectAsStateWithLifecycle(initialValue = auth.currentUser)
     val user = currentUser
 

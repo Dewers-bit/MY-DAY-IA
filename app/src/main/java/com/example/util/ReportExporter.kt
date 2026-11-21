@@ -25,9 +25,10 @@ object ReportExporter {
         savingsGoals: List<SavingsGoal>
     ): Result<Unit> = runCatching {
         val document = PdfDocument()
-        val pageInfo = PdfDocument.PageInfo.Builder(595, 842, 1).create()
-        var page = document.startPage(pageInfo)
-        var canvas = page.canvas
+        try {
+            val pageInfo = PdfDocument.PageInfo.Builder(595, 842, 1).create()
+            var page = document.startPage(pageInfo)
+            var canvas = page.canvas
 
         val titlePaint = Paint().apply {
             color = Color.rgb(11, 18, 32)
@@ -151,11 +152,13 @@ object ReportExporter {
             }
         }
 
-        document.finishPage(page)
-        context.contentResolver.openOutputStream(uri)?.use { out ->
-            document.writeTo(out)
-        } ?: error("Não foi possível abrir o ficheiro de destino.")
-        document.close()
+            document.finishPage(page)
+            context.contentResolver.openOutputStream(uri)?.use { out ->
+                document.writeTo(out)
+            } ?: error("Não foi possível abrir o ficheiro de destino.")
+        } finally {
+            document.close()
+        }
     }
 
     fun writeExcelCsvReport(
