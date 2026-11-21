@@ -73,13 +73,15 @@ jobs:
             KEYSTORE_SOURCE="fallback aleatório (NOVO SHA-1)"
           fi
           SHA1_LINE=$(keytool -list -v -keystore debug.keystore -storepass android | grep -E "SHA1:|SHA-1:" | head -n 1 | xargs)
+          SHA256_LINE=$(keytool -list -v -keystore debug.keystore -storepass android | grep -E "SHA256:|SHA-256:" | head -n 1 | xargs)
           echo "Keystore source: $KEYSTORE_SOURCE | $SHA1_LINE"
           {
             echo "### Assinatura do Debug APK"
             echo "- **Origem da keystore:** $KEYSTORE_SOURCE"
             echo "- **$SHA1_LINE**"
+            echo "- **$SHA256_LINE**"
             if [[ "$KEYSTORE_SOURCE" == *"fallback"* ]]; then
-              echo "::warning::Foi gerada uma keystore temporária porque falta o secret DEBUG_KEYSTORE_BASE64. Registe o $SHA1_LINE no Firebase Console (App Android) OU crie o secret DEBUG_KEYSTORE_BASE64 para o Entrar com Google funcionar."
+              echo "::warning::Foi gerada uma keystore temporária porque falta o secret DEBUG_KEYSTORE_BASE64. Registe o $SHA1_LINE (e $SHA256_LINE) no Firebase Console (App Android) OU crie o secret DEBUG_KEYSTORE_BASE64."
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 

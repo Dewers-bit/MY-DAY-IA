@@ -179,7 +179,7 @@ fun onGoogleSignInClicked(
     onAuthSuccess: () -> Unit,
     onAuthError: (String) -> Unit,
     scope: CoroutineScope,
-    onAuthCancelled: () -> Unit = {}
+    onAuthCancelled: (String?) -> Unit = {}
 ) {
     val clientId = resolveDefaultWebClientId(context)
     if (clientId == null) {
@@ -202,14 +202,22 @@ fun onGoogleSignInClicked(
                 val googleIdToken = GoogleIdTokenCredential.createFrom(credential.data).idToken
                 val authCredential = GoogleAuthProvider.getCredential(googleIdToken, null)
                 Firebase.auth.signInWithCredential(authCredential).await()
-                onAuthSuccess()
+                if (Firebase.auth.currentUser != null) {
+                    onAuthSuccess()
+                } else {
+                    onAuthError("Sessão Google concluída, mas o Firebase Auth não retornou utilizador ativo.")
+                }
             } else {
                 onAuthError("Tipo de credencial inesperado.")
             }
         } catch (e: GetCredentialCancellationException) {
             val sha1 = getApkSha1Fingerprint(context)
             Log.w("Auth", "Google Sign-In cancelled or dismissed (APK SHA-1=$sha1): ${e.message}", e)
-            onAuthCancelled()
+            val reason = e.message?.takeIf { it.isNotBlank() } ?: "fluxo cancelado pelo sistema"
+            val shaNote = if (sha1 != null) "\nSHA-1 deste APK: $sha1" else ""
+            onAuthCancelled(
+                "Login interrompido ($reason). Se já escolheu a conta, confirme o SHA-1 no Firebase e limpe a cache do Google Play Services.$shaNote"
+            )
         } catch (e: NoCredentialException) {
             val sha1 = getApkSha1Fingerprint(context)
             Log.e("Auth", "No Google credential available (APK SHA-1=$sha1)", e)
@@ -221,8 +229,10 @@ fun onGoogleSignInClicked(
             Log.e("Auth", "Credential provider misconfigured", e)
             onAuthError("Google Play Services indisponível ou desactualizado neste dispositivo.")
         } catch (e: GetCredentialException) {
-            Log.e("Auth", "Google Sign-In credential error", e)
-            onAuthError(e.localizedMessage ?: "Falha na autenticação com Google.")
+            val sha1 = getApkSha1Fingerprint(context)
+            Log.e("Auth", "Google Sign-In credential error (APK SHA-1=$sha1)", e)
+            val shaNote = if (sha1 != null) "\nSHA-1 deste APK: $sha1" else ""
+            onAuthError("${e.localizedMessage ?: "Falha na autenticação com Google."}$shaNote")
         } catch (e: Exception) {
             Log.e("Auth", "Google Sign-In failed", e)
             onAuthError(e.localizedMessage ?: "Falha na autenticação com Google.")
@@ -409,7 +419,12 @@ fun AuthScreen(
                                     errorMessage = msg
                                 },
                                 scope = scope,
-                                onAuthCancelled = { isLoading = false }
+                                onAuthCancelled = { cancelMsg ->
+                                    isLoading = false
+                                    if (!cancelMsg.isNullOrBlank()) {
+                                        errorMessage = cancelMsg
+                                    }
+                                }
                             )
                         },
                         enabled = !isLoading,
